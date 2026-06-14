@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>对账工具 - 数据校验看板</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: 'Microsoft YaHei', Arial, sans-serif; }
+        .upload-area { border: 3px dashed #cbd5e0; transition: all 0.3s; }
+        .upload-area:hover, .upload-area.dragover { border-color: #4299e1; background: #ebf8ff; }
+        .error-cell { background-color: #fed7d7 !important; cursor: help; }
+        .warning-cell { background-color: #feebc8 !important; cursor: help; }
+        .duplicate-row { background-color: #fefcbf !important; }
+        .stat-card { transition: transform 0.2s; }
+        .stat-card:hover { transform: translateY(-4px); }
+        table { border-collapse: collapse; table-layout: fixed; }
+        th, td { border: 1px solid #e2e8f0; padding: 4px 8px; text-align: left; font-size: 12px; overflow: hidden; text-overflow: ellipsis; }
+        td.num { white-space: nowrap; }
+        td.txt { white-space: normal; word-break: break-word; }
+        th { background: #f7fafc; font-weight: 600; position: sticky; top: 0; z-index: 10; }
+        .tooltip { position: relative; }
+        .tooltip:hover::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #2d3748;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            white-space: nowrap;
+            z-index: 1000;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div class="mx-auto px-6 py-8" style="max-width: 96vw;">
+        <!-- 标题 -->
+        <div class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-gray-800 mb-2">📊 对账工具</h1>
+            <p class="text-gray-600">上传 Excel 或 CSV 文件，自动校验数据质量</p>
+        </div>
+
+        <!-- 上传区域 -->
+        <div id="uploadSection" class="mb-8">
+            <div id="uploadArea" class="upload-area rounded-xl p-12 text-center cursor-pointer bg-white shadow-sm">
+                <div class="text-6xl mb-4">📁</div>
+                <p class="text-xl text-gray-700 mb-2">拖拽 Excel 或 CSV 文件到此处</p>
+                <p class="text-gray-500 mb-4">或点击选择文件</p>
+                <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" class="hidden">
+                <button onclick="document.getElementById('fileInput').click()"
+                        class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg font-medium transition">
+                    选择文件
+                </button>
+                <p class="text-sm text-gray-400 mt-4">支持 .xlsx、.xls 和 .csv 格式</p>
+            </div>
+        </div>
+
+        <!-- 看板区域 -->
+        <div id="dashboard" class="hidden">
+            <!-- 文件信息 -->
+            <div class="bg-white rounded-lg shadow-sm p-4 mb-6 flex items-center justify-between">
+                <div>
+                    <span class="text-gray-600">当前文件：</span>
+                    <span id="fileName" class="font-medium text-gray-800"></span>
+                </div>
+                <button onclick="resetDashboard()" class="text-blue-500 hover:text-blue-700 font-medium">
+                    重新上传
+                </button>
+            </div>
+
+            <!-- 异常分析（可展开收起，默认收起） -->
+            <div class="bg-white rounded-lg shadow-sm mb-6">
+                <button onclick="toggleAnalysis()" class="w-full flex items-center justify-between p-6 text-left hover:bg-gray-50 transition rounded-lg">
+                    <h3 class="text-lg font-semibold text-gray-800">📈 异常数据分析</h3>
+                    <span id="analysisArrow" class="text-gray-400 text-xl transition-transform duration-300">▶</span>
+                </button>
+                <div id="analysisContent" class="hidden px-6 pb-6">
+                    <!-- 统计卡片 -->
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                        <div class="stat-card bg-gray-50 rounded-lg p-6">
+                            <div class="text-gray-500 text-sm mb-1">总行数</div>
+                            <div id="totalRows" class="text-3xl font-bold text-gray-800">0</div>
+                        </div>
+                        <div class="stat-card bg-gray-50 rounded-lg p-6">
+                            <div class="text-gray-500 text-sm mb-1">总列数</div>
+                            <div id="totalCols" class="text-3xl font-bold text-gray-800">0</div>
+                        </div>
+                        <div class="stat-card bg-gray-50 rounded-lg p-6">
+                            <div class="text-gray-500 text-sm mb-1">异常单元格</div>
+                            <div id="errorCount" class="text-3xl font-bold text-red-600">0</div>
+                        </div>
+                        <div class="stat-card bg-gray-50 rounded-lg p-6">
+                            <div class="text-gray-500 text-sm mb-1">异常率</div>
+                            <div id="errorRate" class="text-3xl font-bold text-orange-600">0%</div>
+                        </div>
+                    </div>
+                    <!-- 图表区域 -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <h4 class="text-md font-semibold mb-4 text-gray-700">异常类型分布</h4>
+                            <canvas id="pieChart"></canvas>
+                        </div>
+                        <div>
+                            <h4 class="text-md font-semibold mb-4 text-gray-700">各列异常数量</h4>
+                            <canvas id="barChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sheet 切换 -->
+            <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+                <div class="flex items-center gap-4 mb-4">
+                    <h3 class="text-lg font-semibold text-gray-800">数据预览</h3>
+                    <div id="sheetTabs" class="flex gap-2"></div>
+                </div>
+                <div class="border rounded">
+                    <table id="dataTable" class="w-full text-sm"></table>
+                </div>
+                <div class="mt-4 flex gap-4 text-sm text-gray-600">
+                    <span class="flex items-center gap-2">
+                        <span class="w-4 h-4 bg-red-200 border"></span> 空值/类型错误
+                    </span>
+                    <span class="flex items-center gap-2">
+                        <span class="w-4 h-4 bg-orange-200 border"></span> 格式异常
+                    </span>
+                    <span class="flex items-center gap-2">
+                        <span class="w-4 h-4 bg-yellow-100 border"></span> 重复行
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let workbook = null;
+        let currentSheet = null;
+        let validationResults = {};
+        let pieChart = null;
+        let barChart = null;
+
+        // 初始化上传区域
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            if (file) handleFile(file);
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) handleFile(file);
+        });
+
+        function handleFile(file) {
+            if (!file.name.match(/\.(xlsx|xls|csv)$/i)) {
+                alert('请上传 Excel 或 CSV 文件（.xlsx、.xls 或 .csv）');
+                return;
+            }
+
+            document.getElementById('fileName').textContent = file.name;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const data = new Uint8Array(e.target.result);
+                workbook = XLSX.read(data, { type: 'array' });
+                processWorkbook(true);
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function processWorkbook(saveData) {
+            // 显示看板
+            document.getElementById('uploadSection').classList.add('hidden');
+            document.getElementById('dashboard').classList.remove('hidden');
+
+            // 保存到 localStorage
+            if (saveData) {
+                saveToStorage(document.getElementById('fileName').textContent);
+            }
+
+            // 创建 Sheet 标签
+            const sheetTabs = document.getElementById('sheetTabs');
+            sheetTabs.innerHTML = '';
+            workbook.SheetNames.forEach((name, index) => {
+                const btn = document.createElement('button');
+                btn.textContent = name;
+                btn.className = index === 0
+                    ? 'px-4 py-2 bg-blue-500 text-white rounded font-medium'
+                    : 'px-4 py-2 bg-gray-200 text-gray-700 rounded font-medium hover:bg-gray-300';
+                btn.onclick = () => switchSheet(name, btn);
+                sheetTabs.appendChild(btn);
+            });
+
+            // 处理第一个 Sheet
+            switchSheet(workbook.SheetNames[0], sheetTabs.children[0]);
+        }
+
+        function switchSheet(sheetName, btn) {
+            // 更新按钮样式
+            document.querySelectorAll('#sheetTabs button').forEach(b => {
+                b.className = 'px-4 py-2 bg-gray-200 text-gray-700 rounded font-medium hover:bg-gray-300';
+            });
+            btn.className = 'px-4 py-2 bg-blue-500 text-white rounded font-medium';
+
+            currentSheet = workbook.Sheets[sheetName];
+            const jsonData = XLSX.utils.sheet_to_json(currentSheet, { header: 1, defval: '' });
+
+            if (jsonData.length === 0) {
+                alert('该 Sheet 没有数据');
+                return;
+            }
+
+            validateData(jsonData);
+            renderDashboard(jsonData);
+        }
+
+        function validateData(data) {
+            validationResults = {
+                errors: {},
+                duplicates: new Set(),
+                stats: {
+                    empty: 0,
+                    typeError: 0,
+                    formatError: 0,
+                    duplicate: 0
+                },
+                columnErrors: {}
+            };
+
+            const headers = data[0];
+            const rows = data.slice(1);
+
+            // 初始化列错误统计
+            headers.forEach((h, i) => {
+                validationResults.columnErrors[i] = { name: h || `列${i+1}`, count: 0 };
+            });
+
+            // 检测重复行
+            const rowStrings = rows.map(r => JSON.stringify(r));
+            const seen = {};
+            rowStrings.forEach((str, idx) => {
+                if (seen[str] !== undefined) {
+                    validationResults.duplicates.add(idx);
+                    validationResults.duplicates.add(seen[str]);
+                    validationResults.stats.duplicate += 2;
+                } else {
+                    seen[str] = idx;
+                }
+            });
+
+            // 推断列类型
+            const columnTypes = inferColumnTypes(rows);
+
+            // 逐单元格校验
+            rows.forEach((row, rowIdx) => {
+                headers.forEach((header, colIdx) => {
+                    const cell = row[colIdx];
+                    const cellKey = `${rowIdx + 1}-${colIdx}`;
+                    const errors = [];
+
+                    // 空值检测
+                    if (cell === '' || cell === null || cell === undefined) {
+                        errors.push('空值');
+                        validationResults.stats.empty++;
+                        validationResults.columnErrors[colIdx].count++;
+                    } else {
+                        // 类型校验
+                        const expectedType = columnTypes[colIdx];
+                        if (expectedType && !validateType(cell, expectedType)) {
+                            errors.push(`类型错误（应为${expectedType}）`);
+                            validationResults.stats.typeError++;
+                            validationResults.columnErrors[colIdx].count++;
+                        }
+
+                        // 格式异常检测
+                        if (expectedType === '数字' && typeof cell === 'string' && cell.match(/^\d+$/)) {
+                            errors.push('格式异常（文本格式的数字）');
+                            validationResults.stats.formatError++;
+                        }
+                    }
+
+                    if (errors.length > 0) {
+                        validationResults.errors[cellKey] = errors;
+                    }
+                });
+            });
+        }
+
+        function inferColumnTypes(rows) {
+            const types = {};
+            const sampleSize = Math.min(20, rows.length);
+
+            for (let col = 0; col < (rows[0]?.length || 0); col++) {
+                const samples = [];
+                for (let i = 0; i < sampleSize; i++) {
+                    const val = rows[i]?.[col];
+                    if (val !== '' && val !== null && val !== undefined) {
+                        samples.push(val);
+                    }
+                }
+
+                if (samples.length === 0) continue;
+
+                const numberCount = samples.filter(s => typeof s === 'number' || (typeof s === 'string' && !isNaN(s) && s.trim() !== '')).length;
+                const dateCount = samples.filter(s => s instanceof Date || (typeof s === 'string' && s.match(/^\d{4}[-/]\d{1,2}[-/]\d{1,2}/))).length;
+
+                if (numberCount / samples.length > 0.7) {
+                    types[col] = '数字';
+                } else if (dateCount / samples.length > 0.7) {
+                    types[col] = '日期';
+                } else {
+                    types[col] = '文本';
+                }
+            }
+
+            return types;
+        }
+
+        function validateType(value, expectedType) {
+            if (expectedType === '数字') {
+                return typeof value === 'number' || (typeof value === 'string' && !isNaN(value) && value.trim() !== '');
+            }
+            if (expectedType === '日期') {
+                return value instanceof Date || (typeof value === 'string' && value.match(/^\d{4}[-/]\d{1,2}[-/]\d{1,2}/));
+            }
+            return true;
+        }
+
+        function renderDashboard(data) {
+            const headers = data[0];
+            const rows = data.slice(1);
+            const totalCells = rows.length * headers.length;
+            const totalErrors = Object.keys(validationResults.errors).length + validationResults.duplicates.size;
+
+            // 更新统计卡片
+            document.getElementById('totalRows').textContent = rows.length;
+            document.getElementById('totalCols').textContent = headers.length;
+            document.getElementById('errorCount').textContent = totalErrors;
+            document.getElementById('errorRate').textContent = totalCells > 0
+                ? ((totalErrors / totalCells) * 100).toFixed(2) + '%'
+                : '0%';
+
+            // 渲染图表
+            renderPieChart();
+            renderBarChart(headers);
+
+            // 渲染表格
+            renderTable(data);
+        }
+
+        function renderPieChart() {
+            const ctx = document.getElementById('pieChart').getContext('2d');
+            if (pieChart) pieChart.destroy();
+
+            pieChart = new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: ['空值', '类型错误', '格式异常', '重复行'],
+                    datasets: [{
+                        data: [
+                            validationResults.stats.empty,
+                            validationResults.stats.typeError,
+                            validationResults.stats.formatError,
+                            validationResults.stats.duplicate
+                        ],
+                        backgroundColor: ['#fc8181', '#f6ad55', '#ffd93d', '#9ae6b4']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { position: 'bottom' }
+                    }
+                }
+            });
+        }
+
+        function renderBarChart(headers) {
+            const ctx = document.getElementById('barChart').getContext('2d');
+            if (barChart) barChart.destroy();
+
+            const labels = [];
+            const counts = [];
+            Object.values(validationResults.columnErrors).forEach(col => {
+                if (col.count > 0) {
+                    labels.push(col.name);
+                    counts.push(col.count);
+                }
+            });
+
+            barChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: '异常数量',
+                        data: counts,
+                        backgroundColor: '#4299e1'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: { beginAtZero: true, ticks: { stepSize: 1 } }
+                    },
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            });
+        }
+
+        function renderTable(data) {
+            const table = document.getElementById('dataTable');
+            const headers = data[0];
+            const rows = data.slice(1);
+
+            let html = '<thead><tr>';
+            headers.forEach(h => {
+                html += `<th>${h || '-'}</th>`;
+            });
+            html += '</tr></thead><tbody>';
+
+            rows.forEach((row, rowIdx) => {
+                const isDuplicate = validationResults.duplicates.has(rowIdx);
+                html += `<tr class="${isDuplicate ? 'duplicate-row' : ''}">`;
+                headers.forEach((h, colIdx) => {
+                    const cellKey = `${rowIdx + 1}-${colIdx}`;
+                    const cellErrors = validationResults.errors[cellKey];
+                    let cellClass = '';
+                    let tooltip = '';
+
+                    if (cellErrors) {
+                        const hasEmpty = cellErrors.some(e => e.includes('空值') || e.includes('类型错误'));
+                        cellClass = hasEmpty ? 'error-cell' : 'warning-cell';
+                        tooltip = cellErrors.join(', ');
+                    }
+
+                    const value = row[colIdx] !== undefined && row[colIdx] !== null ? row[colIdx] : '';
+                    const isNum = typeof value === 'number' || (typeof value === 'string' && value !== '' && !isNaN(value));
+                    const typeClass = isNum ? 'num' : 'txt';
+                    const titleText = tooltip ? `${value}（${tooltip}）` : String(value);
+                    html += `<td class="${typeClass} ${cellClass} ${tooltip ? 'tooltip' : ''}" title="${titleText}" ${tooltip ? `data-tooltip="${tooltip}"` : ''}>${value}</td>`;
+                });
+                html += '</tr>';
+            });
+
+            html += '</tbody>';
+            table.innerHTML = html;
+        }
+
+        function toggleAnalysis() {
+            const content = document.getElementById('analysisContent');
+            const arrow = document.getElementById('analysisArrow');
+            const isHidden = content.classList.contains('hidden');
+            content.classList.toggle('hidden');
+            arrow.style.transform = isHidden ? 'rotate(90deg)' : 'rotate(0deg)';
+        }
+
+        // 保存数据到 localStorage
+        function saveToStorage(fileName) {
+            const sheetsData = {};
+            workbook.SheetNames.forEach(name => {
+                const sheet = workbook.Sheets[name];
+                sheetsData[name] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+            });
+            const storeObj = { fileName, sheetNames: workbook.SheetNames, sheets: sheetsData };
+            try {
+                localStorage.setItem('reconciliation_tool_data', JSON.stringify(storeObj));
+            } catch (e) {
+                console.warn('数据过大，无法保存到本地存储');
+            }
+        }
+
+        // 从 localStorage 恢复数据
+        function restoreFromStorage() {
+            const saved = localStorage.getItem('reconciliation_tool_data');
+            if (!saved) return false;
+            try {
+                const storeObj = JSON.parse(saved);
+                document.getElementById('fileName').textContent = storeObj.fileName;
+
+                // 重建 workbook 结构
+                workbook = { SheetNames: storeObj.sheetNames, Sheets: {} };
+                storeObj.sheetNames.forEach(name => {
+                    const ws = XLSX.utils.aoa_to_sheet(storeObj.sheets[name]);
+                    workbook.Sheets[name] = ws;
+                });
+
+                processWorkbook();
+                return true;
+            } catch (e) {
+                localStorage.removeItem('reconciliation_tool_data');
+                return false;
+            }
+        }
+
+        function resetDashboard() {
+            localStorage.removeItem('reconciliation_tool_data');
+            document.getElementById('uploadSection').classList.remove('hidden');
+            document.getElementById('dashboard').classList.add('hidden');
+            document.getElementById('fileInput').value = '';
+            workbook = null;
+            currentSheet = null;
+            validationResults = {};
+            if (pieChart) pieChart.destroy();
+            if (barChart) barChart.destroy();
+        }
+
+        // 页面加载时尝试恢复数据
+        window.addEventListener('DOMContentLoaded', () => {
+            restoreFromStorage();
+        });
+    </script>
+</body>
+</html>
