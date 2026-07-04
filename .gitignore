@@ -1,0 +1,5 @@
+.wiscode/
+node_modules/
+.DS_Store
+*.xlsx
+*.docx
