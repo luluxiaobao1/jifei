@@ -124,6 +124,24 @@ tbody tr:hover { background: #f8fafc; }
 .pack-table-scroll tbody tr:nth-child(even) { background: #fafafa; }
 .pack-table-scroll tbody tr:nth-child(even):hover { background: #eff6ff; }
 .pack-config-tag { display: inline-block; padding: 2px 8px; margin: 2px 4px 2px 0; border-radius: 4px; font-size: 11px; background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; white-space: nowrap; }
+.pack-config-btn { display: inline-block; padding: 3px 12px; border-radius: 4px; font-size: 12px; background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+.pack-config-btn:hover { background: #dbeafe; border-color: #93c5fd; }
+
+/* 配置弹框 */
+.pack-config-modal { position: fixed; inset: 0; z-index: 9999; display: flex; align-items: center; justify-content: center; background: rgba(15,23,42,0.45); backdrop-filter: blur(2px); }
+.pack-config-modal.hidden { display: none; }
+.pack-config-modal-box { background: #fff; border-radius: 12px; padding: 24px 28px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); max-width: 640px; width: 90%; max-height: 80vh; display: flex; flex-direction: column; }
+.pack-config-modal-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 16px; }
+.pack-config-modal-header h3 { font-size: 16px; font-weight: 600; color: #1e293b; margin: 0; }
+.pack-config-modal-header p { font-size: 12px; color: #94a3b8; margin: 4px 0 0 0; }
+.pack-config-modal-close { background: none; border: none; font-size: 24px; color: #94a3b8; cursor: pointer; padding: 0 4px; line-height: 1; }
+.pack-config-modal-close:hover { color: #475569; }
+.pack-config-modal-body { overflow-y: auto; flex: 1; }
+.pack-config-modal-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.pack-config-modal-table thead th { background: #f8fafc; color: #475569; font-weight: 600; padding: 8px 12px; text-align: left; border-bottom: 2px solid #e5e7eb; font-size: 12px; position: sticky; top: 0; }
+.pack-config-modal-table tbody td { padding: 7px 12px; border-bottom: 1px solid #f0f0f0; color: #334155; }
+.pack-config-modal-table tbody tr:hover { background: #f8fafc; }
+.pack-config-modal-table code { background: #f1f5f9; padding: 1px 6px; border-radius: 3px; font-size: 12px; color: #6366f1; font-family: 'SF Mono', Monaco, Consolas, monospace; }
 .pack-table-scroll tbody td:nth-child(16) { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; position: relative; }
 .pack-table-scroll tbody td.pack-config-cell:hover::after {
     content: attr(data-tooltip);
@@ -140,6 +158,12 @@ tbody tr:hover { background: #f8fafc; }
 .pack-empty { text-align: center; padding: 80px 20px; color: #bbb; }
 .pack-empty svg { width: 64px; height: 64px; fill: #d9d9d9; margin-bottom: 16px; }
 .pack-empty p { font-size: 14px; }
+
+/* 资源包测算结果表格 - 覆盖全局 fixed 布局，允许列内容完整显示 */
+#calcResultTable { table-layout: auto; }
+#calcResultTable th { white-space: nowrap; overflow: visible; text-overflow: unset; }
+#calcResultTable td.num { white-space: nowrap; overflow: visible; text-overflow: unset; }
+#calcResultTable td.txt { white-space: normal; word-break: break-word; overflow: visible; text-overflow: unset; }
 .pack-spinner { width: 16px; height: 16px; border: 2px solid #fff; border-top-color: transparent; border-radius: 50%; animation: loading-spin .6s linear infinite; display: none; }
 .bi-btn-primary.loading .pack-spinner { display: inline-block; }
 .bi-btn-primary.loading .btn-text { opacity: .7; }

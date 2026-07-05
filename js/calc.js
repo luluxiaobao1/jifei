@@ -260,11 +260,10 @@ function drawCalcChart() {
 }
 
 // ========== 核心逻辑 ==========
-let _reverseProductMap = null;
-
 function buildReverseProductMap() {
-    if (_reverseProductMap) return _reverseProductMap;
     const reverse = {};
+
+    // 从 PRODUCT_NAME_MAP 构建基础反向映射
     for (const [sign, name] of Object.entries(PRODUCT_NAME_MAP)) {
         const chinesePart = name.split(/\s+/)[0];
         if (!reverse[name]) reverse[name] = [];
@@ -272,7 +271,24 @@ function buildReverseProductMap() {
         if (!reverse[name].includes(sign)) reverse[name].push(sign);
         if (!reverse[chinesePart].includes(sign)) reverse[chinesePart].push(sign);
     }
-    _reverseProductMap = reverse;
+
+    // 从资源包列表数据补充组合名称（产品名称 - 小产品名称）
+    if (allPackData && allPackData.length > 0) {
+        for (const pack of allPackData) {
+            const sign = pack.product_sign;
+            if (!sign) continue;
+            const baseName = PRODUCT_NAME_MAP[sign] || sign;
+            const smallName = pack.small_sign_name;
+
+            // 添加组合名称，与资源包列表「产品名称」列显示一致
+            if (smallName && smallName.trim()) {
+                const combinedName = baseName + ' - ' + smallName;
+                if (!reverse[combinedName]) reverse[combinedName] = [];
+                if (!reverse[combinedName].includes(sign)) reverse[combinedName].push(sign);
+            }
+        }
+    }
+
     return reverse;
 }
 
@@ -350,24 +366,23 @@ function sumMatchedBillingItems(billingItems, packConfigs) {
             totalStandardPrice: billingItems.reduce((s, b) => s + b.standardPrice, 0),
             totalPayable: billingItems.reduce((s, b) => s + b.payable, 0),
             matchedCount: billingItems.length, totalCount: billingItems.length,
-            matchedItems: billingItems.map(b => b.name)
+            matchedItems: billingItems.map(b => ({ name: b.name, usage: b.usage, standardPrice: b.standardPrice, payable: b.payable }))
         };
     }
 
-    const configNames = packConfigs.map(c => c.label_name || '');
+    // 计费项名称使用 label_name_tag_info_value 组合格式（与弹框展示一致）
+    const configNames = packConfigs.map(c => {
+        const name = c.label_name || '';
+        const tiv = c.tag_info_value || tacticValueMap[c.tag_info_key] || '';
+        return tiv ? (name + '_' + tiv) : name;
+    });
     const matched = [];
     const unmatched = [];
 
     billingItems.forEach(item => {
         const itemName = item.name || '';
-        const isMatch = configNames.some(cn => {
-            if (!cn) return false;
-            if (cn === itemName) return true;
-            if (cn.includes(itemName) || itemName.includes(cn)) return true;
-            const cnParts = cn.split(/[_\-\/]/);
-            const itemParts = itemName.split(/[_\-\/]/);
-            return cnParts.some(p => itemParts.some(ip => p && ip && (p === ip || p.includes(ip) || ip.includes(p))));
-        });
+        // 精确匹配：计费项名称必须完全一致
+        const isMatch = configNames.some(cn => cn && cn === itemName);
 
         if (isMatch) matched.push(item);
         else unmatched.push(item);
@@ -378,7 +393,7 @@ function sumMatchedBillingItems(billingItems, packConfigs) {
         totalStandardPrice: matched.reduce((s, b) => s + b.standardPrice, 0),
         totalPayable: matched.reduce((s, b) => s + b.payable, 0),
         matchedCount: matched.length, totalCount: billingItems.length,
-        matchedItems: matched.map(b => b.name)
+        matchedItems: matched.map(b => ({ name: b.name, usage: b.usage, standardPrice: b.standardPrice, payable: b.payable }))
     };
 }
 
@@ -418,12 +433,15 @@ function calculateResourcePacks(productSummary) {
 
             const result = {
                 productName, packName: pack.pack_name, packId: pack.id, packSign: pack.pack_sign,
+                packStatus: pack.status,
                 packType: PACK_TYPE_MAP[packType] || String(packType),
                 useType: USE_TYPE_MAP[useType] || String(useType),
                 billType: BILL_TYPE_MAP[billType] || billType,
-                requiredCount: null, unitPrice: Number(pack.original_price) || 0, totalCost: null,
+                requiredCount: null,
+                standardPrice: Number(pack.original_price) || 0,
+                vDiscount: pack.v_discount, svipDiscount: pack.s_v_discount, minDiscount: pack.minimum_discount,
                 deductRuleDesc: '', matchedBillingItems: matched.matchedItems,
-                matchedUsage: matched.totalUsage, matchedStandardPrice: matched.totalStandardPrice,
+                matchedUsage: matched.totalUsage, matchedStandardPrice: matched.totalStandardPrice, matchedPayable: matched.totalPayable,
                 status: 'ok', statusMsg: ''
             };
 
@@ -477,7 +495,6 @@ function calculateResourcePacks(productSummary) {
             }
 
             result.requiredCount = count;
-            result.totalCost = count != null ? count * result.unitPrice : null;
             results.push(result);
         });
     }
@@ -496,6 +513,18 @@ function renderCalcStats(stats) {
     `;
 }
 
+function normalizeDiscount(v) {
+    if (v == null || v === '' || v === '-') return null;
+    const n = Number(v);
+    if (isNaN(n) || n <= 0) return null;
+    return n >= 1 ? n / 10 : n;
+}
+
+function getCalcDiscountRate() {
+    const sel = document.getElementById('calcDiscountType');
+    return sel ? sel.value : 'svip';
+}
+
 function renderCalcResult(calcResult) {
     const { results, unmatched, error } = calcResult;
     const resultArea = document.getElementById('resultArea-calc');
@@ -505,7 +534,7 @@ function renderCalcResult(calcResult) {
         document.getElementById('calcResultStats').innerHTML = '';
         document.getElementById('calcResultHead').innerHTML = '';
         document.getElementById('calcResultBody').innerHTML =
-            '<tr><td colspan="12" style="text-align:center;padding:40px;color:#dc2626;">' + escapeHtml(error) + '</td></tr>';
+            '<tr><td colspan="18" style="text-align:center;padding:40px;color:#dc2626;">' + escapeHtml(error) + '</td></tr>';
         document.getElementById('unmatchedProducts').classList.add('hidden');
         return;
     }
@@ -519,16 +548,17 @@ function renderCalcResult(calcResult) {
     };
     renderCalcStats(stats);
 
-    const columns = ['产品名称', '资源包名称', '包类型', '使用类型', '计费周期', '匹配计费项', '匹配用量', '所需个数', '单价', '预估总价', '抵扣规则', '状态'];
+    const columns = ['产品名称', '资源包名称', '资源包标识', '上架状态', '包类型', '使用类型', '计费周期', '抵扣规则', '匹配计费项', '匹配用量', '匹配标准价', '匹配应付金额', '所需个数', '推荐购买个数', '资源包标准价', '资源包购买价', '预估总价', '状态'];
     document.getElementById('calcResultHead').innerHTML = '<tr>' + columns.map(c => '<th>' + c + '</th>').join('') + '</tr>';
 
     if (results.length === 0) {
         document.getElementById('calcResultBody').innerHTML =
-            '<tr><td colspan="12" style="text-align:center;padding:40px;color:#999;">无测算结果</td></tr>';
+            '<tr><td colspan="18" style="text-align:center;padding:40px;color:#999;">无测算结果</td></tr>';
     } else {
         const fmtMoney = v => v != null ? v.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '-';
         const fmtNum = v => v != null ? v.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '-';
         const fmtCount = v => v != null ? v.toFixed(2) : '-';
+        const discountType = getCalcDiscountRate();
         const statusBadge = (status, msg) => {
             if (status === 'ok') return '<span style="color:#16a34a;">✅ 正常</span>';
             if (status === 'no_rule') return '<span style="color:#d97706;" title="' + escapeHtml(msg) + '">⚠️ 待同步</span>';
@@ -539,21 +569,62 @@ function renderCalcResult(calcResult) {
 
         document.getElementById('calcResultBody').innerHTML = results.map(r => {
             const countStr = r.requiredCount != null ? '<strong>' + fmtCount(r.requiredCount) + '</strong>' : '-';
-            const matchedItemsStr = r.matchedBillingItems && r.matchedBillingItems.length > 0
-                ? '<span title="' + escapeHtml(r.matchedBillingItems.join(', ')) + '">' + r.matchedBillingItems.length + ' 项</span>'
-                : '<span style="color:#999;">-</span>';
+            const items = r.matchedBillingItems || [];
+            // 匹配计费项：展示匹配到的计费项数量
+            const matchedCountStr = items.length > 0 ? items.length : '-';
+            // 匹配总量：展示匹配计费项的用量总和
+            const matchedUsageStr = r.matchedUsage != null && items.length > 0 ? fmtNum(r.matchedUsage) : '-';
+            // 匹配标准价：展示匹配计费项的标准价总和
+            const matchedStdPriceStr = r.matchedStandardPrice != null && items.length > 0 ? fmtMoney(r.matchedStandardPrice) : '-';
+            // 匹配应付金额：展示匹配计费项的应付金额总和
+            const matchedPayableStr = r.matchedPayable != null && items.length > 0 ? fmtMoney(r.matchedPayable) : '-';
+
+            // 推荐购买个数 = 所需个数向下取整
+            const recommendedCount = r.requiredCount != null ? Math.floor(r.requiredCount) : null;
+            const recommendedStr = recommendedCount != null ? recommendedCount : '-';
+
+            // 资源包购买价 = 标准价 × 对应折扣
+            let discountRaw = null;
+            if (discountType === 'svip') discountRaw = r.svipDiscount;
+            else if (discountType === 'vip') discountRaw = r.vDiscount;
+            else if (discountType === 'minimum') discountRaw = r.minDiscount;
+            const discountRate = normalizeDiscount(discountRaw);
+            const purchasePrice = (r.standardPrice != null && discountRate != null)
+                ? r.standardPrice * discountRate : null;
+            const purchaseStr = purchasePrice != null ? fmtMoney(purchasePrice)
+                : (discountRate == null && r.standardPrice != null ? '<span style="color:#bbb;" title="无该折扣数据">' + fmtMoney(r.standardPrice) + '</span>' : '-');
+
+            // 预估总价 = 推荐购买个数 × 资源包购买价
+            const totalCost = (recommendedCount != null && purchasePrice != null)
+                ? recommendedCount * purchasePrice : null;
+            const totalCostStr = totalCost != null ? fmtMoney(totalCost) : '-';
+
+            // 存储计算后的值供导出使用
+            r._recommendedCount = recommendedCount;
+            r._purchasePrice = purchasePrice;
+            r._totalCost = totalCost;
+            r._discountType = discountType;
+
+            const packStatusStr = r.packStatus === 2 ? '<span class="pack-badge pack-badge-on">已上架</span>' : (r.packStatus === 1 ? '<span class="pack-badge pack-badge-off">已下架</span>' : '-');
+
             return '<tr>' +
                 '<td class="txt">' + escapeHtml(r.productName) + '</td>' +
                 '<td class="txt">' + escapeHtml(r.packName) + '</td>' +
+                '<td class="txt">' + escapeHtml(r.packSign || '-') + '</td>' +
+                '<td class="txt">' + packStatusStr + '</td>' +
                 '<td class="txt">' + escapeHtml(r.packType) + '</td>' +
                 '<td class="txt">' + escapeHtml(r.useType) + '</td>' +
                 '<td class="txt">' + escapeHtml(r.billType) + '</td>' +
-                '<td class="num">' + matchedItemsStr + '</td>' +
-                '<td class="num">' + fmtNum(r.matchedUsage) + '</td>' +
-                '<td class="num">' + countStr + '</td>' +
-                '<td class="num">' + fmtMoney(r.unitPrice) + '</td>' +
-                '<td class="num">' + fmtMoney(r.totalCost) + '</td>' +
                 '<td class="txt" style="font-size:11px;color:#666;">' + escapeHtml(r.deductRuleDesc) + '</td>' +
+                '<td class="num">' + matchedCountStr + '</td>' +
+                '<td class="num">' + matchedUsageStr + '</td>' +
+                '<td class="num">' + matchedStdPriceStr + '</td>' +
+                '<td class="num">' + matchedPayableStr + '</td>' +
+                '<td class="num">' + countStr + '</td>' +
+                '<td class="num">' + recommendedStr + '</td>' +
+                '<td class="num">' + fmtMoney(r.standardPrice) + '</td>' +
+                '<td class="num">' + purchaseStr + '</td>' +
+                '<td class="num">' + totalCostStr + '</td>' +
                 '<td class="txt">' + statusBadge(r.status, r.statusMsg) + '</td>' +
                 '</tr>';
         }).join('');
@@ -576,20 +647,26 @@ function renderCalcResult(calcResult) {
     }
 
     tabState.calc._lastCalcResult = results;
+    tabState.calc._lastCalcResultRaw = calcResult;
 }
 
 function exportCalcResult() {
     const results = tabState.calc._lastCalcResult;
     if (!results || results.length === 0) { alert('没有可导出的测算结果'); return; }
 
-    const headers = ['产品名称', '资源包名称', '包类型', '使用类型', '计费周期', '匹配计费项', '匹配用量', '所需个数', '单价', '预估总价', '抵扣规则', '状态'];
+    const headers = ['产品名称', '资源包名称', '资源包标识', '上架状态', '包类型', '使用类型', '计费周期', '抵扣规则', '匹配计费项', '匹配用量', '匹配标准价', '匹配应付金额', '所需个数', '推荐购买个数', '资源包标准价', '资源包购买价', '预估总价', '状态'];
     const rows = results.map(r => [
-        r.productName, r.packName, r.packType, r.useType, r.billType,
-        r.matchedBillingItems ? r.matchedBillingItems.join('; ') : '',
+        r.productName, r.packName, r.packSign || '', r.packStatus === 2 ? '已上架' : (r.packStatus === 1 ? '已下架' : ''), r.packType, r.useType, r.billType,
+        r.deductRuleDesc,
+        r.matchedBillingItems ? r.matchedBillingItems.length : '',
         r.matchedUsage != null ? r.matchedUsage : '',
+        r.matchedStandardPrice != null ? r.matchedStandardPrice : '',
+        r.matchedPayable != null ? r.matchedPayable : '',
         r.requiredCount != null ? r.requiredCount : '',
-        r.unitPrice, r.totalCost != null ? r.totalCost : '',
-        r.deductRuleDesc, r.status === 'ok' ? '正常' : r.statusMsg
+        r._recommendedCount != null ? r._recommendedCount : '',
+        r.standardPrice, r._purchasePrice != null ? r._purchasePrice : '',
+        r._totalCost != null ? r._totalCost : '',
+        r.status === 'ok' ? '正常' : r.statusMsg
     ]);
 
     const csvContent = '' + [headers, ...rows].map(row =>

@@ -415,15 +415,23 @@
                     <div id="calcResultStats" class="grid grid-cols-4 gap-4 mb-4"></div>
                     <!-- 测算结果表 -->
                     <div class="bi-card p-5">
-                        <div class="flex items-center justify-between mb-3">
+                        <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
                             <h3 class="text-sm font-semibold text-gray-700">📊 测算结果</h3>
-                            <div class="flex gap-2">
+                            <div class="flex items-center gap-3 flex-wrap">
+                                <label class="text-xs text-gray-500 flex items-center gap-1">
+                                    折扣类型：
+                                    <select id="calcDiscountType" onchange="renderCalcResult(tabState.calc._lastCalcResultRaw)" class="bi-select text-xs" style="padding:3px 8px;min-width:100px;">
+                                        <option value="svip">SVIP折扣</option>
+                                        <option value="vip">VIP折扣</option>
+                                        <option value="minimum">最低折扣</option>
+                                    </select>
+                                </label>
                                 <button onclick="exportCalcResult()" class="bi-btn-ghost text-xs">📥 导出 CSV</button>
                                 <button onclick="syncMissingRules(this)" class="bi-btn-ghost text-xs" style="border-color:#3b82f6;color:#3b82f6;">🔄 批量同步缺失规则</button>
                             </div>
                         </div>
                         <div class="border rounded overflow-auto" style="max-height: calc(100vh - 400px);">
-                            <table>
+                            <table id="calcResultTable">
                                 <thead id="calcResultHead"></thead>
                                 <tbody id="calcResultBody"></tbody>
                             </table>
@@ -497,6 +505,7 @@
                                 </div>
                                 <button class="pack-filter-reset" onclick="resetPackFilters()">重置筛选</button>
                                 <button class="pack-filter-reset" onclick="syncAllPackConfigs(this)" style="border-color:#3b82f6;color:#3b82f6;">批量同步配置</button>
+                                <button class="pack-filter-reset" onclick="exportPackList()" style="border-color:#10b981;color:#10b981;">📥 导出列表</button>
                             </div>
                             <div class="pack-table-toolbar">
                                 <input type="text" id="packTableSearch" placeholder="搜索套餐名称 / 产品标识 / 分类..." oninput="filterPackTable()">
@@ -513,6 +522,20 @@
                     </div>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- 配置详情弹框 -->
+    <div id="packConfigModal" class="pack-config-modal hidden" onclick="if(event.target===this)closePackConfigModal()">
+        <div class="pack-config-modal-box">
+            <div class="pack-config-modal-header">
+                <div>
+                    <h3 id="configModalTitle"></h3>
+                    <p id="configModalCount"></p>
+                </div>
+                <button onclick="closePackConfigModal()" class="pack-config-modal-close">&times;</button>
+            </div>
+            <div id="configModalBody" class="pack-config-modal-body"></div>
         </div>
     </div>
 
