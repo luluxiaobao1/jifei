@@ -1,0 +1,115 @@
+/* ==========================================================
+   计费明细 页面样式
+   公共变量与重置见 ../shared/base.css（必须先于本文件加载）
+   本页为「账单分析 > 产品分析」操作列新开页的落地页，独立入口访问。
+   ========================================================== */
+
+.detail-page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: var(--spacing-lg) var(--spacing-xl) var(--spacing-xxl);
+}
+
+.detail-crumb {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-bottom: var(--spacing-lg);
+}
+
+.detail-crumb .sep {
+  color: var(--text-tertiary);
+}
+
+.detail-crumb .current {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.panel {
+  background: var(--card-background);
+  border: 1px solid var(--border-light);
+  padding: var(--spacing-xl);
+}
+
+.page-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--spacing-md);
+  padding-bottom: var(--spacing-lg);
+  border-bottom: 1px solid var(--border-light);
+}
+
+.page-title {
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.page-sub {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+/* 从来源页带过来的查询条件：以只读标签形式回显 */
+.cond-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  flex-wrap: wrap;
+  padding: var(--spacing-lg) 0;
+}
+
+.cond-bar:empty {
+  display: none;
+}
+
+.cond-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 var(--spacing-md);
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  background: var(--bg-gray);
+  font-size: 13px;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.cond-label {
+  color: var(--text-tertiary);
+}
+
+.cond-value {
+  font-weight: 500;
+}
+
+/* 占位区：明细表由后端接口接入后替换此块 */
+.placeholder {
+  padding: 72px var(--spacing-xl);
+  text-align: center;
+  color: var(--text-tertiary);
+}
+
+.placeholder-ico {
+  width: 48px;
+  height: 48px;
+  color: #C7D0DC;
+}
+
+.placeholder-title {
+  margin-top: var(--spacing-lg);
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.placeholder-text {
+  margin-top: var(--spacing-sm);
+  font-size: 13px;
+  line-height: 1.7;
+}

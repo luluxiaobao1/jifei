@@ -1,0 +1,517 @@
+/* ==========================================================
+   base.css — 账单模块公共样式
+   由 账单概览/styles.css 与 账单详情/styles.css 的公共前缀提取而来。
+   包含：设计变量、重置、滚动条、头部、图标栏、侧边栏、面包屑、
+        浮动栏、筛选面板、下拉组件基础样式。
+   加载顺序：base.css 必须在各页 styles.css 之前引入。
+   ========================================================== */
+
+/* 360智汇云设计系统 - 账单概览页面样式 */
+:root {
+  /* 品牌色 */
+  --primary-color: #0066FF;
+  --secondary-blue: #2e8cff;
+
+  /* 功能色 */
+  --success-color: #52C41A;
+  --warning-color: #FAAD14;
+  --error-color: #FF4D4F;
+
+  /* 中性色 */
+  --text-primary: #202020;
+  --text-secondary: #666666;
+  --text-tertiary: #8C9AAE;
+  --border-color: #D8E0E8;
+  --border-light: #E6E6E6;
+  --background-color: #F0F5F7;
+  --bg-gray: #F8F9FA;
+  --card-background: #FFFFFF;
+
+  /* 标签色 */
+  --tag-bg: #EEF6FF;
+
+  /* 间距 */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 12px;
+  --spacing-lg: 16px;
+  --spacing-xl: 20px;
+  --spacing-xxl: 32px;
+
+  /* 圆角 */
+  --border-radius-sm: 2px;
+  --border-radius-md: 4px;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  font-family: "Microsoft YaHei", "PingFang SC", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-primary);
+  background: var(--background-color);
+}
+
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 2px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.4);
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* ============ 子视图页：仅含内容区，由外壳页 iframe 承载 ============ */
+body.subview {
+  background: transparent;
+}
+
+body.subview .main-content {
+  padding: 0 0 var(--spacing-xl);
+}
+
+/* ============ 顶部导航 ============ */
+.header {
+  height: 50px;
+  flex: 0 0 50px;
+  background: var(--card-background);
+  box-shadow: 0 2px 6px rgba(49, 49, 71, 0.26);
+  display: flex;
+  align-items: center;
+  padding: 0 var(--spacing-xl);
+  position: relative;
+  z-index: 100;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-lg);
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.logo-mark {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #2e8cff, #0066FF);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nav-btn {
+  height: 32px;
+  padding: 6px 12px;
+  border-radius: var(--border-radius-md);
+  background: var(--bg-gray);
+  border: 1px solid var(--bg-gray);
+  color: var(--text-primary);
+  font-size: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.nav-btn:hover {
+  background: #F1F3F5;
+}
+
+.nav-btn.group {
+  background: var(--card-background);
+  border: 1px solid var(--border-color);
+}
+
+.nav-btn .ico {
+  width: 16px;
+  height: 16px;
+  color: var(--primary-color);
+}
+
+.header-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-lg);
+}
+
+.header-link {
+  color: var(--text-primary);
+  font-size: 14px;
+  text-decoration: none;
+  position: relative;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.header-link:hover {
+  color: var(--primary-color);
+}
+
+.ai-entry {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--border-radius-md);
+  background: var(--tag-bg);
+  color: var(--primary-color);
+  font-size: 14px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.badge {
+  position: absolute;
+  top: -10px;
+  right: -14px;
+  min-width: 18px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--error-color);
+  color: #fff;
+  font-size: 12px;
+  line-height: 16px;
+  text-align: center;
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding-left: var(--spacing-lg);
+  border-left: 1px solid var(--border-light);
+  cursor: pointer;
+}
+
+.avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--primary-color);
+  color: #fff;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.user-meta {
+  line-height: 1.3;
+}
+
+.user-name {
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.user-role {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+/* ============ 主体容器 ============ */
+.container {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+/* 左侧图标栏 */
+.icon-bar {
+  width: 50px;
+  flex: 0 0 50px;
+  background: var(--secondary-blue);
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.icon-item {
+  height: 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  color: #E5EAF3;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 9px;
+  line-height: 1.3;
+}
+
+.icon-item.top {
+  height: 50px;
+  font-size: 11px;
+}
+
+.icon-item svg {
+  width: 18px;
+  height: 18px;
+}
+
+.icon-item.top svg {
+  width: 20px;
+  height: 20px;
+}
+
+.icon-item:hover,
+.icon-item.active {
+  background: var(--primary-color);
+  color: #FFFFFF;
+}
+
+/* 中间菜单栏 */
+.sidebar {
+  width: 200px;
+  flex: 0 0 200px;
+  background: var(--card-background);
+  border-right: 1px solid var(--border-light);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.sidebar-title {
+  height: 50px;
+  display: flex;
+  align-items: center;
+  padding: 0 var(--spacing-lg);
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.menu {
+  flex: 1;
+  overflow-y: auto;
+  padding-bottom: var(--spacing-lg);
+}
+
+.menu-group > .menu-item {
+  height: 40px;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: 0 var(--spacing-lg);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.menu-group > .menu-item:hover {
+  background: #F5F7FA;
+}
+
+.menu-group.expanded > .menu-item {
+  background: #F5F7FA;
+}
+
+.menu-item .menu-ico {
+  width: 16px;
+  height: 16px;
+  color: var(--text-secondary);
+}
+
+.menu-item .arrow {
+  margin-left: auto;
+  width: 12px;
+  height: 12px;
+  color: var(--text-tertiary);
+  transition: transform 0.2s ease;
+}
+
+.menu-group.expanded .arrow {
+  transform: rotate(180deg);
+}
+
+.submenu {
+  display: none;
+}
+
+.menu-group.expanded .submenu {
+  display: block;
+}
+
+.submenu-item {
+  height: 36px;
+  display: flex;
+  align-items: center;
+  padding: 0 var(--spacing-lg) 0 40px;
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.submenu-item:hover {
+  background: #F5F7FA;
+}
+
+.submenu-item.active {
+  background: var(--tag-bg);
+  color: var(--primary-color);
+}
+
+.sidebar-collapse {
+  height: 40px;
+  border-top: 1px solid var(--border-light);
+  display: flex;
+  align-items: center;
+  padding: 0 var(--spacing-lg);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+/* ============ 内容区 ============ */
+.main-content {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  padding: var(--spacing-lg) var(--spacing-xl) var(--spacing-xl);
+}
+
+/* ============ 角色演示栏 ============ */
+.role-demo-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  background: #FFFBEB;
+  border: 1px solid #FDE68A;
+  border-radius: var(--border-radius-md);
+  padding: 8px var(--spacing-lg);
+  margin-bottom: var(--spacing-lg);
+  flex-wrap: wrap;
+}
+
+.role-demo-label {
+  font-size: 13px;
+  color: #92400E;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.role-btn-group {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+/* 同权限角色分组：主账号 / 企业管理员 / 系统管理员 */
+.role-set {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px 4px 6px;
+  border: 1px dashed #F0A93C;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.6);
+}
+
+.role-set-tag {
+  font-size: 12px;
+  color: #92400E;
+  background: #FDE68A;
+  border-radius: 9px;
+  padding: 1px 8px;
+  white-space: nowrap;
+}
+
+.role-btn {
+  height: 28px;
+  padding: 0 12px;
+  border-radius: 14px;
+  font-size: 13px;
+  font-family: inherit;
+  border: 1px solid #D1D5DB;
+  background: #FFFFFF;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.18s ease;
+  white-space: nowrap;
+}
+
+.role-btn:hover {
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+}
+
+.role-btn.active {
+  background: var(--primary-color);
+  border-color: var(--primary-color);
+  color: #FFFFFF;
+  font-weight: 500;
+}
+
+.role-hint {
+  font-size: 12px;
+  color: #A16207;
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+/* ============ Tab 面板 ============ */
+.tab-panel {
+  display: none;
+}
+
+.tab-panel.active {
+  display: block;
+}
+
+.tab[style*="display: none"] {
+  display: none !important;
+}
+
+/* ============ 多选 / 单选下拉 ============ */
+.multiselect,
+.singleselect {
+  position: relative;
+  display: inline-block;
+}

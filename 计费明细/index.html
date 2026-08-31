@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>计费明细 - 360智汇云</title>
+  <link rel="stylesheet" href="../shared/base.css?v=20260830e">
+  <link rel="stylesheet" href="styles.css?v=20260831a">
+</head>
+
+<body>
+  <!-- 由「账单分析 > 产品分析」列表的操作列新开页打开，
+       通过 URL 参数接收产品与账期：?product=&billType=&period= -->
+  <main class="detail-page">
+    <div class="detail-crumb">
+      <span>账单管理</span>
+      <span class="sep">&gt;</span>
+      <span class="current">计费明细</span>
+    </div>
+
+    <section class="panel">
+      <div class="page-head">
+        <h1 class="page-title">计费明细</h1>
+        <span class="page-sub" id="page-sub"></span>
+      </div>
+
+      <div class="cond-bar" id="cond-bar"></div>
+
+      <div class="placeholder">
+        <svg class="placeholder-ico" viewBox="0 0 48 48" fill="none">
+          <rect x="8" y="6" width="32" height="36" rx="3" stroke="currentColor" stroke-width="2" />
+          <path d="M15 16h18M15 23h18M15 30h12" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+        </svg>
+        <p class="placeholder-title">计费明细页面</p>
+        <p class="placeholder-text">此处按上述筛选条件展示该产品在选定账期内的逐条计费记录（资源实例、计费项、用量、单价、金额）。</p>
+      </div>
+    </section>
+  </main>
+
+  <script src="app.js?v=20260901a"></script>
+</body>
+
+</html>
