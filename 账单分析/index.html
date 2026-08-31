@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>账单分析 - 360智汇云</title>
+  <link rel="stylesheet" href="../shared/base.css?v=20260830e">
+  <link rel="stylesheet" href="styles.css?v=20260901b">
+  <style>
+    /* 抽屉内展示：外壳抽屉未提供内边距，此处补齐四周留白 */
+    body.embed .main-content {
+      padding: var(--spacing-lg) var(--spacing-xl) var(--spacing-xl);
+    }
+  </style>
+</head>
+
+<body class="subview">
+<script>
+  // 在内容渲染前打上 embed 标记，避免抽屉内首帧出现无内边距的跳动
+  if (/[?&]embed=1/.test(location.search)) document.body.classList.add('embed');
+</script>
+<!-- 内容片段：顶栏 / 图标栏 / 侧边栏 / 面包屑 / 浮动条均由外壳页 ../index.html 提供。
+     本页仅经 iframe 由外壳加载，不作为独立入口访问。 -->
+  <main class="main-content">
+    <!-- 角色演示切换栏 -->
+    <div class="role-demo-bar">
+      <span class="role-demo-label">演示角色：</span>
+      <div class="role-btn-group">
+        <span class="role-set" title="主账号 / 企业管理员 / 系统管理员 权限一致：可查看企业下全部分析">
+          <span class="role-set-tag">同权限</span>
+          <button class="role-btn active" data-role="master">主账号</button>
+          <button class="role-btn" data-role="enterprise-admin">企业管理员</button>
+          <button class="role-btn" data-role="sys-admin">系统管理员</button>
+        </span>
+        <button class="role-btn" data-role="billing-admin">结算单元管理员</button>
+        <button class="role-btn" data-role="rg-admin">资源组管理员</button>
+      </div>
+      <span class="role-hint" id="role-hint"></span>
+    </div>
+
+    <section class="panel">
+      <!-- 分析维度 Tabs（按角色权限显示） -->
+      <div class="tabs" id="analysis-tabs">
+        <div class="tab active" data-panel="enterprise">企业分析</div>
+        <div class="tab" data-panel="billing-unit">结算单元分析</div>
+        <div class="tab" data-panel="resource-group">资源组分析</div>
+      </div>
+
+      <!-- ===== 企业分析面板 ===== -->
+      <div class="tab-panel active" id="panel-enterprise">
+        <div class="filter-bar" data-dim="enterprise">
+          <select class="select w-sm bill-type">
+            <option>月账单</option>
+            <option>天账单</option>
+            <option>小时账单</option>
+          </select>
+          <!-- 分析为单点选择：只选一个月 / 一天 / 一个小时 -->
+          <div class="date-single picker-month">
+            <input type="text" value="2026.08" placeholder="2026.08" readonly>
+            <svg class="cal" viewBox="0 0 16 16" fill="none">
+              <rect x="2" y="3" width="12" height="11" rx="1.2" stroke="currentColor" stroke-width="1.2" />
+              <path d="M2 6.5h12M5.5 2v2.5M10.5 2v2.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" />
+            </svg>
+          </div>
+          <button class="btn btn-primary" data-action="search">搜 索</button>
+          <button class="btn btn-text" data-action="reset">重置</button>
+          <span class="period-tip" id="tip-enterprise"></span>
+        </div>
+
+        <!-- 消费 TOP 模块 -->
+        <div class="analysis-block">
+          <div class="block-head">
+            <h3 class="block-title">消费 TOP</h3>
+            <span class="block-sub" id="topsub-enterprise"></span>
+          </div>
+          <div class="top-grid" id="topgrid-enterprise"></div>
+        </div>
+
+        <!-- 产品分析模块：逐产品拆解选中账期的账单组成 -->
+        <div class="analysis-block">
+          <div class="block-head">
+            <h3 class="block-title">产品分析</h3>
+            <span class="block-sub" id="prodsub-enterprise"></span>
+          </div>
+          <div class="prod-analysis" id="prodtable-enterprise"></div>
+        </div>
+      </div>
+
+      <!-- ===== 结算单元分析面板 ===== -->
+      <div class="tab-panel" id="panel-billing-unit">
+        <div class="filter-bar" data-dim="billing-unit">
+          <select class="select w-sm bill-type">
+            <option>月账单</option>
+            <option>天账单</option>
+            <option>小时账单</option>
+          </select>
+          <div class="date-single picker-month">
+            <input type="text" value="2026.08" placeholder="2026.08" readonly>
+            <svg class="cal" viewBox="0 0 16 16" fill="none">
+              <rect x="2" y="3" width="12" height="11" rx="1.2" stroke="currentColor" stroke-width="1.2" />
+              <path d="M2 6.5h12M5.5 2v2.5M10.5 2v2.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" />
+            </svg>
+          </div>
+
+          <!-- 结算单元单选（必填，默认第一个有权限的结算单元） -->
+          <div class="singleselect required-field" id="ss-bu">
+            <div class="ms-trigger" id="ss-bu-trigger">
+              <span class="ms-placeholder" id="ss-bu-label">请选择结算单元</span>
+              <svg class="ms-arrow" viewBox="0 0 12 12" fill="none" width="12" height="12">
+                <path d="M2 4.5L6 8.5L10 4.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </div>
+            <div class="ms-dropdown" id="ss-bu-dropdown"></div>
+          </div>
+
+          <button class="btn btn-primary" data-action="search">搜 索</button>
+          <button class="btn btn-text" data-action="reset">重置</button>
+          <span class="period-tip" id="tip-billing-unit"></span>
+        </div>
+
+        <div class="analysis-block">
+          <div class="block-head">
+            <h3 class="block-title">消费 TOP</h3>
+            <span class="block-sub" id="topsub-billing-unit"></span>
+          </div>
+          <div class="top-grid" id="topgrid-billing-unit"></div>
+        </div>
+
+        <!-- 产品分析模块：拆解选中结算单元下每个产品的账单组成 -->
+        <div class="analysis-block">
+          <div class="block-head">
+            <h3 class="block-title">产品分析</h3>
+            <span class="block-sub" id="prodsub-billing-unit"></span>
+          </div>
+          <div class="prod-analysis" id="prodtable-billing-unit"></div>
+        </div>
+      </div>
+
+      <!-- ===== 资源组分析面板 ===== -->
+      <div class="tab-panel" id="panel-resource-group">
+        <div class="filter-bar" data-dim="resource-group">
+          <select class="select w-sm bill-type">
+            <option>月账单</option>
+            <option>天账单</option>
+            <option>小时账单</option>
+          </select>
+          <div class="date-single picker-month">
+            <input type="text" value="2026.08" placeholder="2026.08" readonly>
+            <svg class="cal" viewBox="0 0 16 16" fill="none">
+              <rect x="2" y="3" width="12" height="11" rx="1.2" stroke="currentColor" stroke-width="1.2" />
+              <path d="M2 6.5h12M5.5 2v2.5M10.5 2v2.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" />
+            </svg>
+          </div>
+
+          <!-- 结算单元单选（必填，默认第一个有权限的结算单元） -->
+          <div class="singleselect required-field" id="ss-rg-bu">
+            <div class="ms-trigger" id="ss-rg-bu-trigger">
+              <span class="ms-placeholder" id="ss-rg-bu-label">请选择结算单元</span>
+              <svg class="ms-arrow" viewBox="0 0 12 12" fill="none" width="12" height="12">
+                <path d="M2 4.5L6 8.5L10 4.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </div>
+            <div class="ms-dropdown" id="ss-rg-bu-dropdown"></div>
+          </div>
+
+          <!-- 资源组单选（必填，默认所选结算单元下第一个资源组） -->
+          <div class="singleselect required-field" id="ss-rg">
+            <div class="ms-trigger" id="ss-rg-trigger">
+              <span class="ms-placeholder" id="ss-rg-label">请选择资源组</span>
+              <svg class="ms-arrow" viewBox="0 0 12 12" fill="none" width="12" height="12">
+                <path d="M2 4.5L6 8.5L10 4.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </div>
+            <div class="ms-dropdown" id="ss-rg-dropdown"></div>
+          </div>
+
+          <button class="btn btn-primary" data-action="search">搜 索</button>
+          <button class="btn btn-text" data-action="reset">重置</button>
+          <span class="period-tip" id="tip-resource-group"></span>
+        </div>
+
+        <div class="analysis-block">
+          <div class="block-head">
+            <h3 class="block-title">消费 TOP</h3>
+            <span class="block-sub" id="topsub-resource-group"></span>
+          </div>
+          <div class="top-grid" id="topgrid-resource-group"></div>
+        </div>
+
+        <!-- 产品分析模块：拆解选中资源组下每个产品的账单组成 -->
+        <div class="analysis-block">
+          <div class="block-head">
+            <h3 class="block-title">产品分析</h3>
+            <span class="block-sub" id="prodsub-resource-group"></span>
+          </div>
+          <div class="prod-analysis" id="prodtable-resource-group"></div>
+        </div>
+      </div>
+
+    </section>
+  </main>
+
+  <!-- ============ TOP 卡片「查看全部」弹框 ============ -->
+  <div class="top-modal" id="top-modal" aria-hidden="true">
+    <div class="top-modal-mask"></div>
+    <div class="top-modal-dialog" role="dialog" aria-modal="true">
+      <div class="top-modal-head">
+        <span class="top-modal-title" id="top-modal-title"></span>
+        <button type="button" class="top-modal-close" id="top-modal-close" title="关闭">
+          <svg viewBox="0 0 16 16" width="16" height="16" fill="none">
+            <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+          </svg>
+        </button>
+      </div>
+      <div class="top-modal-body" id="top-modal-body"></div>
+    </div>
+  </div>
+
+  <script src="app.js?v=20260901b"></script>
+</body>
+
+</html>

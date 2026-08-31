@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>账单概览 - 360智汇云</title>
+  <link rel="stylesheet" href="../shared/base.css?v=20260830c">
+  <link rel="stylesheet" href="styles.css?v=20260831e">
+</head>
+
+<body class="subview">
+<!-- 内容片段：顶栏 / 图标栏 / 侧边栏 / 面包屑 / 浮动条均由外壳页 ../index.html 提供。
+     本页仅经 iframe 由外壳加载，不作为独立入口访问。 -->
+      <main class="main-content">
+        <!-- 角色演示切换栏 -->
+        <div class="role-demo-bar">
+          <span class="role-demo-label">演示角色：</span>
+          <div class="role-btn-group">
+            <span class="role-set" title="主账号 / 企业管理员 / 系统管理员 权限一致：可查看企业下全部账单">
+              <span class="role-set-tag">同权限</span>
+              <button class="role-btn active" data-role="master" data-tab="enterprise">主账号</button>
+              <button class="role-btn" data-role="enterprise-admin" data-tab="enterprise">企业管理员</button>
+              <button class="role-btn" data-role="sys-admin" data-tab="enterprise">系统管理员</button>
+            </span>
+            <button class="role-btn" data-role="billing-admin" data-tab="billing-unit">结算单元管理员</button>
+            <button class="role-btn" data-role="rg-admin" data-tab="resource-group">资源组管理员</button>
+          </div>
+          <span class="role-hint" id="role-hint">主账号 / 企业管理员 / 系统管理员：可查看企业下全部账单（企业账单 / 结算单元账单 / 资源组账单）</span>
+        </div>
+
+        <section class="panel">
+          <!-- Tabs -->
+          <div class="tabs" id="bill-tabs">
+            <div class="tab active" data-panel="enterprise">企业账单</div>
+            <div class="tab" data-panel="billing-unit">结算单元账单</div>
+            <div class="tab" data-panel="resource-group">资源组账单</div>
+            <!-- 账单分析入口：与 Tabs 同行右侧，三个面板共用一个入口 -->
+            <button type="button" class="analysis-entry" data-action="open-analysis" title="打开账单分析">
+              <svg class="analysis-entry-ico" viewBox="0 0 20 20" fill="none">
+                <path d="M3 16.5h14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+                <rect x="4.5" y="9" width="2.8" height="5" rx="0.8" fill="currentColor" />
+                <rect x="8.8" y="5.5" width="2.8" height="8.5" rx="0.8" fill="currentColor" />
+                <rect x="13.1" y="7.5" width="2.8" height="6.5" rx="0.8" fill="currentColor" />
+              </svg>
+              <span class="analysis-entry-text">账单分析</span>
+              <span class="change-badge">本期改动</span>
+            </button>
+          </div>
+
+          <!-- 提示条 -->
+          <div class="notice">
+            1、月账单：次月第3个工作日8点后为准确数据；2、天账单：次日14点后为准确数据；3、小时账单：今天12点后，昨天的小时帐为准确数据。
+          </div>
+
+          <!-- ===== 企业账单面板 ===== -->
+          <div class="tab-panel active" id="panel-enterprise">
+            <div class="filter-bar" data-dim="enterprise">
+              <select class="select w-sm bill-type">
+                <option>月账单</option>
+                <option>天账单</option>
+                <option>小时账单</option>
+              </select>
+              <div class="date-range picker-month">
+                <input type="text" class="dp-input dp-input-start" value="2026.03" placeholder="开始" readonly>
+                <span class="tilde">~</span>
+                <input type="text" class="dp-input dp-input-end" value="2026.08" placeholder="结束" readonly>
+                <svg class="cal" viewBox="0 0 16 16" fill="none">
+                  <rect x="2" y="3" width="12" height="11" rx="1.2" stroke="currentColor" stroke-width="1.2" />
+                  <path d="M2 6.5h12M5.5 2v2.5M10.5 2v2.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" />
+                </svg>
+              </div>
+
+              <!-- 产品多选下拉 -->
+              <div class="multiselect" id="ms-enterprise-product">
+                <div class="ms-trigger" id="ms-ep-trigger">
+                  <span class="ms-placeholder" id="ms-ep-label">全部产品</span>
+                  <svg class="ms-arrow" viewBox="0 0 12 12" fill="none" width="12" height="12">
+                    <path d="M2 4.5L6 8.5L10 4.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+                  </svg>
+                  <span class="ms-clear" title="清空">
+                    <svg viewBox="0 0 12 12" fill="none" width="12" height="12">
+                      <circle cx="6" cy="6" r="5.4" fill="currentColor" />
+                      <path d="M4.2 4.2l3.6 3.6M7.8 4.2L4.2 7.8" stroke="#fff" stroke-width="1.2" stroke-linecap="round" />
+                    </svg>
+                  </span>
+                </div>
+                <div class="ms-dropdown" id="ms-ep-dropdown">
+                  <div class="ms-option ms-all" data-value="all">
+                    <span class="ms-check"></span>全选
+                  </div>
+                  <div class="ms-option" data-value="apimkt">
+                    <span class="ms-check"></span>API市场 APIMKT
+                  </div>
+                  <div class="ms-option" data-value="appmkt">
+                    <span class="ms-check"></span>应用市场 APPMKT
+                  </div>
+                  <div class="ms-option" data-value="tidb">
+                    <span class="ms-check"></span>分布式数据库 TiDB
+                  </div>
+                  <div class="ms-option" data-value="obs">
+                    <span class="ms-check"></span>对象存储 OBS
+                  </div>
+                  <div class="ms-option" data-value="ecs">
+                    <span class="ms-check"></span>云服务器 ECS
+                  </div>
+                </div>
+              </div>
+
+              <button class="btn btn-primary" data-action="search">搜 索</button>
+              <button class="btn btn-text" data-action="reset">重置</button>
+              <button class="btn btn-link">导出数据</button>
+              <span class="range-tip"></span>
+            </div>
+
+            <!-- 图表 - 企业账单 -->
+            <div class="chart-section">
+              <div class="chart-wrap" id="chart-ep"></div>
+              <div class="chart-side">
+                <div class="chart-legend" id="legend-ep"></div>
+              </div>
+            </div>
+
+            <!-- 表格 - 企业账单 -->
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>账期</th>
+                    <th class="col-product">产品</th>
+                    <th>官网标准价金额 <svg class="help-ico" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="5.6" stroke="currentColor" stroke-width="1.1"/><path d="M5.6 5.6a1.4 1.4 0 112.2 1.2c-.5.35-.8.6-.8 1.1" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><circle cx="7" cy="10" r=".6" fill="currentColor"/></svg></th>
+                    <th>优惠金额 <svg class="help-ico" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="5.6" stroke="currentColor" stroke-width="1.1"/><path d="M5.6 5.6a1.4 1.4 0 112.2 1.2c-.5.35-.8.6-.8 1.1" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><circle cx="7" cy="10" r=".6" fill="currentColor"/></svg></th>
+                    <th>应付金额 <svg class="help-ico" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="5.6" stroke="currentColor" stroke-width="1.1"/><path d="M5.6 5.6a1.4 1.4 0 112.2 1.2c-.5.35-.8.6-.8 1.1" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><circle cx="7" cy="10" r=".6" fill="currentColor"/></svg></th>
+                    <th>欠费金额 <svg class="help-ico" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="5.6" stroke="currentColor" stroke-width="1.1"/><path d="M5.6 5.6a1.4 1.4 0 112.2 1.2c-.5.35-.8.6-.8 1.1" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><circle cx="7" cy="10" r=".6" fill="currentColor"/></svg></th>
+                    <th>账单状态 <svg class="help-ico" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="5.6" stroke="currentColor" stroke-width="1.1"/><path d="M5.6 5.6a1.4 1.4 0 112.2 1.2c-.5.35-.8.6-.8 1.1" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><circle cx="7" cy="10" r=".6" fill="currentColor"/></svg></th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody id="tbody-ep"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- ===== 结算单元账单面板 ===== -->
+          <div class="tab-panel" id="panel-billing-unit">
+            <div class="filter-bar" data-dim="billing-unit">
+              <select class="select w-sm bill-type">
+                <option>月账单</option>
+                <option>天账单</option>
+                <option>小时账单</option>
+              </select>
+              <div class="date-range picker-month">
+                <input type="text" class="dp-input dp-input-start" value="2026.03" placeholder="开始" readonly>
+                <span class="tilde">~</span>
+                <input type="text" class="dp-input dp-input-end" value="2026.08" placeholder="结束" readonly>
+                <svg class="cal" viewBox="0 0 16 16" fill="none">
+                  <rect x="2" y="3" width="12" height="11" rx="1.2" stroke="currentColor" stroke-width="1.2" />
+                  <path d="M2 6.5h12M5.5 2v2.5M10.5 2v2.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" />
+                </svg>
+              </div>
+
+              <!-- 结算单元多选下拉（与产品筛选交互一致） -->
+              <div class="multiselect" id="ms-bu-unit">
+                <div class="ms-trigger" id="ms-bu-trigger">
+                  <span class="ms-placeholder" id="ms-bu-label">全部结算单元</span>
+                  <svg class="ms-arrow" viewBox="0 0 12 12" fill="none" width="12" height="12">
+                    <path d="M2 4.5L6 8.5L10 4.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+                  </svg>
+                  <span class="ms-clear" title="清空">
+                    <svg viewBox="0 0 12 12" fill="none" width="12" height="12">
+                      <circle cx="6" cy="6" r="5.4" fill="currentColor" />
+                      <path d="M4.2 4.2l3.6 3.6M7.8 4.2L4.2 7.8" stroke="#fff" stroke-width="1.2" stroke-linecap="round" />
+                    </svg>
+                  </span>
+                </div>
+                <div class="ms-dropdown" id="ms-bu-dropdown">
+                  <div class="ms-option ms-all" data-value="all">
+                    <span class="ms-check"></span>全选
+                  </div>
+                </div>
+              </div>
+
+              <!-- 产品多选下拉 -->
+              <div class="multiselect" id="ms-bu-product">
+                <div class="ms-trigger" id="ms-bp-trigger">
+                  <span class="ms-placeholder" id="ms-bp-label">全部产品</span>
+                  <svg class="ms-arrow" viewBox="0 0 12 12" fill="none" width="12" height="12">
+                    <path d="M2 4.5L6 8.5L10 4.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+                  </svg>
+                  <span class="ms-clear" title="清空">
+                    <svg viewBox="0 0 12 12" fill="none" width="12" height="12">
+                      <circle cx="6" cy="6" r="5.4" fill="currentColor" />
+                      <path d="M4.2 4.2l3.6 3.6M7.8 4.2L4.2 7.8" stroke="#fff" stroke-width="1.2" stroke-linecap="round" />
+                    </svg>
+                  </span>
+                </div>
+                <div class="ms-dropdown" id="ms-bp-dropdown">
+                  <div class="ms-option ms-all" data-value="all">
+                    <span class="ms-check"></span>全选
+                  </div>
+                  <div class="ms-option" data-value="apimkt">
+                    <span class="ms-check"></span>API市场 APIMKT
+                  </div>
+                  <div class="ms-option" data-value="appmkt">
+                    <span class="ms-check"></span>应用市场 APPMKT
+                  </div>
+                  <div class="ms-option" data-value="tidb">
+                    <span class="ms-check"></span>分布式数据库 TiDB
+                  </div>
+                  <div class="ms-option" data-value="obs">
+                    <span class="ms-check"></span>对象存储 OBS
+                  </div>
+                  <div class="ms-option" data-value="ecs">
+                    <span class="ms-check"></span>云服务器 ECS
+                  </div>
+                </div>
+              </div>
+
+              <button class="btn btn-primary" data-action="search">搜 索</button>
+              <button class="btn btn-text" data-action="reset">重置</button>
+              <button class="btn btn-link">导出数据</button>
+              <span class="range-tip"></span>
+            </div>
+
+            <!-- 图表 - 结算单元账单 -->
+            <div class="chart-section">
+              <div class="chart-wrap" id="chart-bp"></div>
+              <div class="chart-side">
+                <div class="chart-legend" id="legend-bp"></div>
+              </div>
+            </div>
+
+            <!-- 表格 - 结算单元账单 -->
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>账期</th>
+                    <th>结算单元</th>
+                    <th class="col-product">产品</th>
+                    <th>官网标准价金额 <svg class="help-ico" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="5.6" stroke="currentColor" stroke-width="1.1"/><path d="M5.6 5.6a1.4 1.4 0 112.2 1.2c-.5.35-.8.6-.8 1.1" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><circle cx="7" cy="10" r=".6" fill="currentColor"/></svg></th>
+                    <th>优惠金额 <svg class="help-ico" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="5.6" stroke="currentColor" stroke-width="1.1"/><path d="M5.6 5.6a1.4 1.4 0 112.2 1.2c-.5.35-.8.6-.8 1.1" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><circle cx="7" cy="10" r=".6" fill="currentColor"/></svg></th>
+                    <th>应付金额 <svg class="help-ico" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="5.6" stroke="currentColor" stroke-width="1.1"/><path d="M5.6 5.6a1.4 1.4 0 112.2 1.2c-.5.35-.8.6-.8 1.1" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><circle cx="7" cy="10" r=".6" fill="currentColor"/></svg></th>
+                    <th>欠费金额 <svg class="help-ico" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="5.6" stroke="currentColor" stroke-width="1.1"/><path d="M5.6 5.6a1.4 1.4 0 112.2 1.2c-.5.35-.8.6-.8 1.1" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><circle cx="7" cy="10" r=".6" fill="currentColor"/></svg></th>
+                    <th>账单状态 <svg class="help-ico" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="5.6" stroke="currentColor" stroke-width="1.1"/><path d="M5.6 5.6a1.4 1.4 0 112.2 1.2c-.5.35-.8.6-.8 1.1" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><circle cx="7" cy="10" r=".6" fill="currentColor"/></svg></th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody id="tbody-bp"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- ===== 资源组账单面板 ===== -->
+          <div class="tab-panel" id="panel-resource-group">
+            <div class="filter-bar" data-dim="resource-group">
+              <select class="select w-sm bill-type">
+                <option>月账单</option>
+                <option>天账单</option>
+                <option>小时账单</option>
+              </select>
+              <div class="date-range picker-month">
+                <input type="text" class="dp-input dp-input-start" value="2026.03" placeholder="开始" readonly>
+                <span class="tilde">~</span>
+                <input type="text" class="dp-input dp-input-end" value="2026.08" placeholder="结束" readonly>
+                <svg class="cal" viewBox="0 0 16 16" fill="none">
+                  <rect x="2" y="3" width="12" height="11" rx="1.2" stroke="currentColor" stroke-width="1.2" />
+                  <path d="M2 6.5h12M5.5 2v2.5M10.5 2v2.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" />
+                </svg>
+              </div>
+
+              <!-- 结算单元单选（资源组账单为单选） -->
+              <div class="singleselect" id="ss-rg-bu">
+                <div class="ms-trigger" id="ss-rg-bu-trigger">
+                  <span class="ms-placeholder" id="ss-rg-bu-label">全部结算单元</span>
+                  <svg class="ms-arrow" viewBox="0 0 12 12" fill="none" width="12" height="12">
+                    <path d="M2 4.5L6 8.5L10 4.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+                  </svg>
+                  <span class="ms-clear" title="清空">
+                    <svg viewBox="0 0 12 12" fill="none" width="12" height="12">
+                      <circle cx="6" cy="6" r="5.4" fill="currentColor" />
+                      <path d="M4.2 4.2l3.6 3.6M7.8 4.2L4.2 7.8" stroke="#fff" stroke-width="1.2" stroke-linecap="round" />
+                    </svg>
+                  </span>
+                </div>
+                <div class="ms-dropdown" id="ss-rg-bu-dropdown"></div>
+              </div>
+
+              <!-- 资源组多选 -->
+              <div class="multiselect" id="ms-rg-group">
+                <div class="ms-trigger" id="ms-rg-trigger">
+                  <span class="ms-placeholder" id="ms-rg-label">全部资源组</span>
+                  <svg class="ms-arrow" viewBox="0 0 12 12" fill="none" width="12" height="12">
+                    <path d="M2 4.5L6 8.5L10 4.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+                  </svg>
+                  <span class="ms-clear" title="清空">
+                    <svg viewBox="0 0 12 12" fill="none" width="12" height="12">
+                      <circle cx="6" cy="6" r="5.4" fill="currentColor" />
+                      <path d="M4.2 4.2l3.6 3.6M7.8 4.2L4.2 7.8" stroke="#fff" stroke-width="1.2" stroke-linecap="round" />
+                    </svg>
+                  </span>
+                </div>
+                <div class="ms-dropdown" id="ms-rg-dropdown">
+                  <div class="ms-option ms-all" data-value="all">
+                    <span class="ms-check"></span>全选
+                  </div>
+                </div>
+              </div>
+
+              <!-- 产品多选下拉 -->
+              <div class="multiselect" id="ms-rg-product">
+                <div class="ms-trigger" id="ms-rgp-trigger">
+                  <span class="ms-placeholder" id="ms-rgp-label">全部产品</span>
+                  <svg class="ms-arrow" viewBox="0 0 12 12" fill="none" width="12" height="12">
+                    <path d="M2 4.5L6 8.5L10 4.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+                  </svg>
+                  <span class="ms-clear" title="清空">
+                    <svg viewBox="0 0 12 12" fill="none" width="12" height="12">
+                      <circle cx="6" cy="6" r="5.4" fill="currentColor" />
+                      <path d="M4.2 4.2l3.6 3.6M7.8 4.2L4.2 7.8" stroke="#fff" stroke-width="1.2" stroke-linecap="round" />
+                    </svg>
+                  </span>
+                </div>
+                <div class="ms-dropdown" id="ms-rgp-dropdown">
+                  <div class="ms-option ms-all" data-value="all">
+                    <span class="ms-check"></span>全选
+                  </div>
+                  <div class="ms-option" data-value="apimkt">
+                    <span class="ms-check"></span>API市场 APIMKT
+                  </div>
+                  <div class="ms-option" data-value="appmkt">
+                    <span class="ms-check"></span>应用市场 APPMKT
+                  </div>
+                  <div class="ms-option" data-value="tidb">
+                    <span class="ms-check"></span>分布式数据库 TiDB
+                  </div>
+                  <div class="ms-option" data-value="obs">
+                    <span class="ms-check"></span>对象存储 OBS
+                  </div>
+                  <div class="ms-option" data-value="ecs">
+                    <span class="ms-check"></span>云服务器 ECS
+                  </div>
+                </div>
+              </div>
+
+              <button class="btn btn-primary" data-action="search">搜 索</button>
+              <button class="btn btn-text" data-action="reset">重置</button>
+              <button class="btn btn-link">导出数据</button>
+              <span class="range-tip"></span>
+            </div>
+
+            <!-- 图表 - 资源组账单 -->
+            <div class="chart-section">
+              <div class="chart-wrap" id="chart-rgp"></div>
+              <div class="chart-side">
+                <div class="chart-legend" id="legend-rgp"></div>
+              </div>
+            </div>
+
+            <!-- 表格 - 资源组账单 -->
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>账期</th>
+                    <th>结算单元</th>
+                    <th>资源组</th>
+                    <th class="col-product">产品</th>
+                    <th>官网标准价金额 <svg class="help-ico" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="5.6" stroke="currentColor" stroke-width="1.1"/><path d="M5.6 5.6a1.4 1.4 0 112.2 1.2c-.5.35-.8.6-.8 1.1" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><circle cx="7" cy="10" r=".6" fill="currentColor"/></svg></th>
+                    <th>优惠金额 <svg class="help-ico" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="5.6" stroke="currentColor" stroke-width="1.1"/><path d="M5.6 5.6a1.4 1.4 0 112.2 1.2c-.5.35-.8.6-.8 1.1" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><circle cx="7" cy="10" r=".6" fill="currentColor"/></svg></th>
+                    <th>应付金额 <svg class="help-ico" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="5.6" stroke="currentColor" stroke-width="1.1"/><path d="M5.6 5.6a1.4 1.4 0 112.2 1.2c-.5.35-.8.6-.8 1.1" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><circle cx="7" cy="10" r=".6" fill="currentColor"/></svg></th>
+                    <th>欠费金额 <svg class="help-ico" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="5.6" stroke="currentColor" stroke-width="1.1"/><path d="M5.6 5.6a1.4 1.4 0 112.2 1.2c-.5.35-.8.6-.8 1.1" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><circle cx="7" cy="10" r=".6" fill="currentColor"/></svg></th>
+                    <th>账单状态 <svg class="help-ico" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="5.6" stroke="currentColor" stroke-width="1.1"/><path d="M5.6 5.6a1.4 1.4 0 112.2 1.2c-.5.35-.8.6-.8 1.1" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><circle cx="7" cy="10" r=".6" fill="currentColor"/></svg></th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody id="tbody-rgp"></tbody>
+              </table>
+            </div>
+          </div>
+
+        </section>
+      </main>
+
+  <!-- 账单分析入口已移至各面板图表右侧图例上方（.chart-side > .analysis-entry），
+       原右下角悬浮按钮不再使用，避免入口被浮动条遮挡、不易发现。 -->
+
+  <script src="app.js?v=20260831c"></script>
+</body>
+
+</html>

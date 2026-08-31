@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>账单详情 - 360智汇云</title>
+<link rel="stylesheet" href="../shared/base.css?v=20260830b">
+<link rel="stylesheet" href="styles.css?v=20260830b">
+</head>
+<body class="subview">
+<!-- 内容片段：顶栏 / 图标栏 / 侧边栏 / 面包屑 / 浮动条均由外壳页 ../index.html 提供。
+     本页仅经 iframe 由外壳加载，不作为独立入口访问。 -->
+<main class="main-content">
+
+  <!-- 角色演示切换（仅原型演示用） -->
+  <div class="role-demo-bar">
+    <span class="role-demo-label">演示角色：</span>
+    <div class="role-btn-group">
+      <span class="role-set" title="这三个角色权限一致，均可查看全部三个维度的账单">
+        <span class="role-set-tag">同权限</span>
+        <button class="role-btn active" data-role="master">主账号</button>
+        <button class="role-btn" data-role="enterprise-admin">企业管理员</button>
+        <button class="role-btn" data-role="sys-admin">系统管理员</button>
+      </span>
+      <button class="role-btn" data-role="billing-admin">结算单元管理员</button>
+      <button class="role-btn" data-role="rg-admin">资源组管理员</button>
+    </div>
+    <span class="role-hint" id="role-hint"></span>
+  </div>
+
+  <div class="panel">
+    <div class="tabs" id="tabs"></div>
+    <div class="notice">1、月账单：次月第3个工作日8点后为准确数据；2、天账单：次日14点后为准确数据；3、小时账单：今天12点后，昨天的小时账为准确数据。</div>
+    <div id="panels"></div>
+  </div>
+
+</main>
+
+<script src="app.js?v=20260830b"></script>
+</body>
+</html>
