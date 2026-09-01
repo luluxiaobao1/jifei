@@ -398,6 +398,17 @@ function momCell(mom) {
          (up ? '↗ ' : '↘ ') + fmtPct(Math.abs(mom)) + '</span>';
 }
 
+// 产品分析表格内的环比格：与消费 TOP 同色语义，但字号与单元格内联，避免撑高行高。
+// prev 为上一账期金额，非正（不存在）时输出占位。
+function prodMomCell(cur, prev) {
+  if (!prev) return '<span class="prod-mom flat">--</span>';
+  var mom = (cur / prev - 1) * 100;
+  if (Math.abs(mom) < 0.005) return '<span class="prod-mom flat">0.00%</span>';
+  var up = mom > 0;
+  return '<span class="prod-mom ' + (up ? 'up' : 'down') + '">' +
+         (up ? '↗ ' : '↘ ') + fmtPct(Math.abs(mom)) + '</span>';
+}
+
 function escapeHtml(s) {
   return String(s).replace(/[&<>"]/g, function (c) {
     return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
@@ -613,18 +624,25 @@ function cardsOf(dim, scopes, type, date) {
 // 逐产品列出选中账期的账单组成：按量计费应付 / 资源包购买 / 资源包抵扣，
 // 并给出应付金额合计（= 按量计费应付 + 资源包购买）与合计行。
 function buildProdComposition(scopes, type, date) {
+  // 环比口径：与上一账期（上月 / 前一天 / 上一小时）比较，
+  // 逐产品记录当期的 pay / amount 及上一账期的 prevPay / prevAmount。
+  var prev = prevPeriod(type, date);
   var rows = PRODUCT_KEYS.map(function (k) {
     var c = compositionOf(scopes, k, type, date);
-    return { name: PRODUCTS[k].name, amount: c.amount, pay: c.pay, buy: c.buy, ded: c.ded };
+    var p = compositionOf(scopes, k, type, prev);
+    return { name: PRODUCTS[k].name, amount: c.amount, pay: c.pay, buy: c.buy, ded: c.ded,
+             prevPay: p.pay, prevAmount: p.amount };
   });
   rows.sort(function (a, b) { return b.amount - a.amount; });
 
-  var sum = { amount: 0, pay: 0, buy: 0, ded: 0 };
+  var sum = { amount: 0, pay: 0, buy: 0, ded: 0, prevPay: 0, prevAmount: 0 };
   rows.forEach(function (r) {
     sum.amount += r.amount;
     sum.pay += r.pay;
     sum.buy += r.buy;
     sum.ded += r.ded;
+    sum.prevPay += r.prevPay;
+    sum.prevAmount += r.prevAmount;
   });
   return { rows: rows, sum: sum };
 }
@@ -651,6 +669,7 @@ function renderProdAnalysis(dim, scopes, type, date) {
 
   var data = buildProdComposition(scopes, type, date);
   var scopeLabel = prodScopeLabel(dim);
+  var prevLabel = TYPE_CFG[type].prevLabel;
 
   if (sub) {
     sub.textContent = (scopeLabel ? '范围 ' + scopeLabel + '　' : '') +
@@ -662,9 +681,11 @@ function renderProdAnalysis(dim, scopes, type, date) {
   var html = ['<table class="prod-table"><thead><tr>' +
     '<th class="col-name">产品</th>' +
     '<th class="col-num">按量计费应付金额</th>' +
+    '<th class="col-num mom-col">较' + prevLabel + '环比</th>' +
     '<th class="col-num">资源包购买金额</th>' +
     '<th class="col-num">资源包抵扣金额</th>' +
     '<th class="col-num">应付金额合计</th>' +
+    '<th class="col-num mom-col">较' + prevLabel + '环比</th>' +
     '<th class="col-op">操作</th>' +
     '</tr></thead><tbody>'];
 
@@ -677,9 +698,11 @@ function renderProdAnalysis(dim, scopes, type, date) {
     html.push('<tr>' +
       '<td class="col-name" title="' + escapeHtml(r.name) + '">' + escapeHtml(r.name) + '</td>' +
       '<td class="col-num">￥' + fmtMoney(r.pay) + '</td>' +
+      '<td class="col-num mom-col">' + prodMomCell(r.pay, r.prevPay) + '</td>' +
       '<td class="col-num">￥' + fmtMoney(r.buy) + '</td>' +
       '<td class="col-num deduct">-￥' + fmtMoney(r.ded) + '</td>' +
       '<td class="col-num total">￥' + fmtMoney(r.amount) + '</td>' +
+      '<td class="col-num mom-col">' + prodMomCell(r.amount, r.prevAmount) + '</td>' +
       '<td class="col-op"><a class="prod-op-link" href="' + escapeHtml(href) +
         '" target="_blank" rel="noopener">计费明细</a></td>' +
       '</tr>');
@@ -688,9 +711,11 @@ function renderProdAnalysis(dim, scopes, type, date) {
   html.push('</tbody><tfoot><tr>' +
     '<td class="col-name">合计</td>' +
     '<td class="col-num">￥' + fmtMoney(data.sum.pay) + '</td>' +
+    '<td class="col-num mom-col">' + prodMomCell(data.sum.pay, data.sum.prevPay) + '</td>' +
     '<td class="col-num">￥' + fmtMoney(data.sum.buy) + '</td>' +
     '<td class="col-num deduct">-￥' + fmtMoney(data.sum.ded) + '</td>' +
     '<td class="col-num total">￥' + fmtMoney(data.sum.amount) + '</td>' +
+    '<td class="col-num mom-col">' + prodMomCell(data.sum.amount, data.sum.prevAmount) + '</td>' +
     '<td class="col-op"></td>' +
     '</tr></tfoot></table>');
 

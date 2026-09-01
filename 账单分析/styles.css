@@ -1115,6 +1115,28 @@ body.modal-open {
   font-variant-numeric: tabular-nums;
 }
 
+/* 环比列：与金额列同右对齐，横向与金额并排不撑宽 */
+.prod-table .mom-col {
+  white-space: nowrap;
+  padding-left: 16px;
+}
+
+/* 产品分析环比格：沿用消费 TOP 的↑涨↓跌语义，字号略小以内联而不抬高行高 */
+.prod-mom {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.prod-mom.up {
+  color: var(--error-color);
+}
+.prod-mom.down {
+  color: var(--success-color);
+}
+.prod-mom.flat {
+  color: var(--text-tertiary);
+}
+
 .prod-table .col-name {
   min-width: 180px;
   color: var(--text-primary);
