@@ -1,5 +1,6 @@
 (function () {
-  var VIEW_LABEL = { overview: '账单概览', detail: '账单详情', analysis: '账单分析' };
+  // 只有整页视图进 VIEW_LABEL；账单分析走抽屉、计费明细走新开页，都不在此列
+  var VIEW_LABEL = { overview: '账单概览', detail: '账单详情' };
   var currentView = 'overview';
 
   var frames = {};
@@ -60,10 +61,17 @@
     requestAnimationFrame(function () { nudgeResize(view); });
   }
 
-  // 侧边栏「账单概览 / 账单详情 / 账单分析」点击切换视图
+  // 侧边栏「账单概览 / 账单详情」点击切换视图
   document.querySelectorAll('.submenu-item[data-view]').forEach(function (item) {
     item.addEventListener('click', function () {
       switchView(item.dataset.view);
+    });
+  });
+
+  // 侧边栏「计费明细」：不占整页视图，与表内下钻同样新开页
+  document.querySelectorAll('.submenu-item[data-open]').forEach(function (item) {
+    item.addEventListener('click', function () {
+      window.open(item.dataset.open, '_blank', 'noopener');
     });
   });
 

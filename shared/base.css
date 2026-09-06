@@ -416,57 +416,117 @@ body.subview .main-content {
   padding: var(--spacing-lg) var(--spacing-xl) var(--spacing-xl);
 }
 
-/* ============ 角色演示栏 ============ */
-.role-demo-bar {
-  display: flex;
+/* ============ 角色演示切换（悬浮） ============
+   原先是页面顶部一整条黄色横栏，占掉约 60px 首屏高度。
+   改为固定在右下角的悬浮按钮，点击展开面板，不再挤压内容区。
+   仅为原型演示用，非真实功能。 */
+.role-fab {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 120;
+  display: inline-flex;
   align-items: center;
-  gap: var(--spacing-md);
-  background: #FFFBEB;
+  gap: 6px;
+  height: 34px;
+  padding: 0 14px;
   border: 1px solid #FDE68A;
-  border-radius: var(--border-radius-md);
-  padding: 8px var(--spacing-lg);
-  margin-bottom: var(--spacing-lg);
-  flex-wrap: wrap;
+  border-radius: 17px;
+  background: #FFFBEB;
+  color: #92400E;
+  font-size: 13px;
+  font-family: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow: 0 2px 10px rgba(146, 64, 14, 0.16);
+  transition: box-shadow 0.18s ease, border-color 0.18s ease;
+  white-space: nowrap;
 }
 
-.role-demo-label {
-  font-size: 13px;
+.role-fab:hover {
+  border-color: #F0A93C;
+  box-shadow: 0 4px 14px rgba(146, 64, 14, 0.22);
+}
+
+.role-fab-ico {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+
+/* 当前角色名，随切换更新 */
+.role-fab-name {
+  font-weight: 600;
+}
+
+.role-fab-arrow {
+  width: 10px;
+  height: 10px;
+  flex: none;
+  transition: transform 0.18s ease;
+}
+
+.role-fab.open .role-fab-arrow {
+  transform: rotate(180deg);
+}
+
+/* 展开面板：贴着按钮向上弹出 */
+.role-pop {
+  position: fixed;
+  right: 20px;
+  bottom: 62px;
+  z-index: 121;
+  width: 260px;
+  padding: 10px;
+  border: 1px solid #FDE68A;
+  border-radius: var(--border-radius-md);
+  background: #FFFBEB;
+  box-shadow: 0 6px 20px rgba(146, 64, 14, 0.18);
+  display: none;
+}
+
+.role-pop.open {
+  display: block;
+}
+
+.role-pop-title {
+  font-size: 12px;
   color: #92400E;
-  font-weight: 500;
-  white-space: nowrap;
+  font-weight: 600;
+  padding: 0 2px 8px;
 }
 
 .role-btn-group {
   display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-  align-items: center;
+  flex-direction: column;
+  gap: 4px;
 }
 
 /* 同权限角色分组：主账号 / 企业管理员 / 系统管理员 */
 .role-set {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 8px 4px 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px;
   border: 1px dashed #F0A93C;
-  border-radius: 16px;
+  border-radius: var(--border-radius-sm);
   background: rgba(255, 255, 255, 0.6);
 }
 
 .role-set-tag {
-  font-size: 12px;
+  font-size: 11px;
   color: #92400E;
   background: #FDE68A;
   border-radius: 9px;
   padding: 1px 8px;
+  align-self: flex-start;
   white-space: nowrap;
 }
 
 .role-btn {
-  height: 28px;
-  padding: 0 12px;
-  border-radius: 14px;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: var(--border-radius-sm);
   font-size: 13px;
   font-family: inherit;
   border: 1px solid #D1D5DB;
@@ -475,6 +535,7 @@ body.subview .main-content {
   cursor: pointer;
   transition: all 0.18s ease;
   white-space: nowrap;
+  text-align: left;
 }
 
 .role-btn:hover {
@@ -489,11 +550,15 @@ body.subview .main-content {
   font-weight: 500;
 }
 
+/* 当前角色的权限范围说明 */
 .role-hint {
+  display: block;
   font-size: 12px;
+  line-height: 1.5;
   color: #A16207;
-  margin-left: auto;
-  white-space: nowrap;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #FDE68A;
 }
 
 /* ============ Tab 面板 ============ */

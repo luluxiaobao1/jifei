@@ -6,12 +6,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>计费明细 - 360智汇云</title>
   <link rel="stylesheet" href="../shared/base.css?v=20260830e">
-  <link rel="stylesheet" href="styles.css?v=20260831a">
+  <link rel="stylesheet" href="styles.css?v=20260904e">
 </head>
 
 <body>
-  <!-- 由「账单分析 > 产品分析」列表的操作列新开页打开，
-       通过 URL 参数接收产品与账期：?product=&billType=&period= -->
+  <!-- 三个入口均为新开页：
+       账单概览 > 报表点击应付金额 / 账单分析 > 产品分析点击计费明细，带 URL 参数；
+       外壳侧边栏「计费明细」直接进入，无参数，条件区为空。
+       参数：?product=&billType=&period=&billingUnit=&resourceGroup=&scope= -->
   <main class="detail-page">
     <div class="detail-crumb">
       <span>账单管理</span>
@@ -38,7 +40,7 @@
     </section>
   </main>
 
-  <script src="app.js?v=20260901a"></script>
+  <script src="app.js?v=20260905a"></script>
 </body>
 
 </html>

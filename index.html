@@ -5,9 +5,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>账单管理 - 360智汇云</title>
-  <link rel="stylesheet" href="shared/base.css?v=20260830b">
-  <link rel="stylesheet" href="账单概览/styles.css?v=20260831e">
-  <link rel="stylesheet" href="shared/shell.css?v=20260830b">
+  <link rel="stylesheet" href="shared/base.css?v=20260905c">
+  <link rel="stylesheet" href="账单概览/styles.css?v=20260905c">
+  <link rel="stylesheet" href="shared/shell.css?v=20260905c">
 </head>
 
 <body>
@@ -235,7 +235,8 @@
               <div class="submenu-item" data-view="detail">
                 <span>账单详情</span><span class="change-badge">本期改动</span>
               </div>
-              <div class="submenu-item">计费明细</div>
+              <!-- 计费明细不进 iframe：无筛选条件时也可直接进入（空态自带来源提示），走新开页 -->
+              <div class="submenu-item" data-open="计费明细/index.html?v=20260905a">计费明细</div>
             </div>
           </div>
           <div class="menu-group">
@@ -293,11 +294,11 @@
         <!-- 各视图分别以 iframe 承载，样式与脚本互相隔离 -->
         <div class="view-host">
           <iframe class="view-frame active" id="frame-overview" data-view="overview"
-                  src="账单概览/index.html?v=20260831e" title="账单概览"></iframe>
+                  src="账单概览/index.html?v=20260905c" title="账单概览"></iframe>
           <iframe class="view-frame" id="frame-detail" data-view="detail"
-                  data-src="账单详情/index.html?v=20260830b" title="账单详情"></iframe>
-          <iframe class="view-frame" id="frame-analysis" data-view="analysis"
-                  data-src="账单分析/index.html?v=20260831c" title="账单分析"></iframe>
+                  data-src="账单详情/index.html?v=20260904a" title="账单详情"></iframe>
+          <!-- 账单分析不占整页视图，只以右侧抽屉形式打开，见页尾 #frame-drawer-analysis -->
+
         </div>
       </main>
     </div>
@@ -337,11 +338,11 @@
     </div>
     <div class="drawer-body">
       <iframe class="drawer-frame" id="frame-drawer-analysis" data-view="drawer-analysis"
-              data-src="账单分析/index.html?v=20260831c&embed=1" title="账单分析"></iframe>
+              data-src="账单分析/index.html?v=20260905a&embed=1" title="账单分析"></iframe>
     </div>
   </aside>
 
-  <script src="shared/shell.js?v=20260830b"></script>
+  <script src="shared/shell.js?v=20260905a"></script>
 </body>
 
 </html>

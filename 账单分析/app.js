@@ -272,7 +272,8 @@ var roleConfig = {
   'rg-admin': {
     label: '资源组管理员', tab: 'resource-group',
     tabs: ['resource-group'],
-    buIds: [], rgIds: ['rg1', 'rg5'],
+    // 与账单概览 / 账单详情保持同一套可见资源组（rg1、rg2 属 bu1，rg5 属 bu2）
+    buIds: [], rgIds: ['rg1', 'rg2', 'rg5'],
     hint: '资源组管理员：仅可查看有权限的资源组分析（无企业分析 / 结算单元分析）'
   }
 };
@@ -418,9 +419,9 @@ function escapeHtml(s) {
 // 各分析维度下「占比」列的口径说明：占比的分母随维度不同而不同，
 // 直接标注在表头，避免用户误以为三个 Tab 的占比是同一口径。
 var SHARE_TIP = {
-  'enterprise': '企业全部账单金额占比',
-  'billing-unit': '选中结算单元的账单金额占比',
-  'resource-group': '选中资源组账单金额占比'
+  'enterprise': '当前行应付金额 / 企业下全部账单的应付金额',
+  'billing-unit': '当前行应付金额 / 选中结算单元下全部账单的应付金额',
+  'resource-group': '当前行应付金额 / 选中资源组下全部账单的应付金额'
 };
 
 // 占比列表头：文案 + 问号图标。
@@ -1408,9 +1409,12 @@ switchRole('master');
   });
 
   if (embed) {
-    // 角色由概览页统一切换，抽屉内不再重复提供角色入口
-    var roleBar = document.querySelector('.role-demo-bar');
-    if (roleBar) roleBar.style.display = 'none';
+    // 角色由概览页统一切换，抽屉内不再重复提供角色入口。
+    // 悬浮按钮与面板都要藏，否则会浮在抽屉右下角
+    ['role-fab', 'role-pop'].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.style.display = 'none';
+    });
     // ESC 关闭抽屉：焦点在 iframe 内时外壳页收不到按键，需转发
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape' && window.parent && window.parent !== window) {

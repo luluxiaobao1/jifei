@@ -16,10 +16,18 @@ var ORG = [
     { id:'rg7', name:'资源组-测试环境', w:0.42 }
   ]}
 ];
-var BU_MAP = {}, RG_MAP = {}, RG_PARENT = {};
+var BU_MAP = {}, RG_MAP = {}, RG_PARENT = {}, RG_INDEX = {};
+var rgSeq = 0;
 ORG.forEach(function(b){
   BU_MAP[b.id] = b;
-  b.groups.forEach(function(g){ RG_MAP[g.id] = g; RG_PARENT[g.id] = b.id; });
+  b.groups.forEach(function(g){
+    RG_MAP[g.id] = g;
+    RG_PARENT[g.id] = b.id;
+    /* 资源组的全局固定序号：作为金额波动种子的一部分。
+       必须与「当前可见哪些资源组」无关，否则切角色 / 改结算单元筛选时，
+       同一个资源组在同一账期的金额会跳动。 */
+    RG_INDEX[g.id] = rgSeq++;
+  });
 });
 
 /* =========================================================
@@ -60,25 +68,17 @@ var ALL_PROD_IDS = PRODUCTS.map(function(p){ return p.id; });
 var FEE_TYPES = ['按量计费','预付费','增项','抵扣'];
 
 /* =========================================================
-   角色 → 可见 Tab（不再基于权限聚合：各角色只看自己维度的账单）
-   主账号 / 企业管理员 / 系统管理员：三个 Tab 都能看
+   角色 → 数据权限范围
+   本页固定展示「资源组」维度，角色不在本页切换，仅作为权限数据源：
+   由外壳页（账单概览 / 账单分析）广播的 set-role 静默驱动可见范围。
+     buIds:null / rgIds:null 表示不受限（企业下全部）
    ========================================================= */
-var ALL_TABS = ['enterprise','billing-unit','resource-group'];
-var TAB_LABEL = { 'enterprise':'企业账单', 'billing-unit':'结算单元账单', 'resource-group':'资源组账单' };
-
 var roleConfig = {
-  'master': { label:'主账号', tabs:ALL_TABS, tab:'enterprise', buIds:null, rgIds:null,
-    hint:'可查看企业账单、结算单元账单、资源组账单三个维度' },
-  'enterprise-admin': { label:'企业管理员', tabs:ALL_TABS, tab:'enterprise', buIds:null, rgIds:null,
-    hint:'可查看企业账单、结算单元账单、资源组账单三个维度' },
-  'sys-admin': { label:'系统管理员', tabs:ALL_TABS, tab:'enterprise', buIds:null, rgIds:null,
-    hint:'可查看企业账单、结算单元账单、资源组账单三个维度' },
-  'billing-admin': { label:'结算单元管理员', tabs:['billing-unit','resource-group'], tab:'billing-unit',
-    buIds:['bu1','bu2'], rgIds:null,
-    hint:'可查看有权限的结算单元账单，以及该结算单元下所有资源组的账单（无企业账单）' },
-  'rg-admin': { label:'资源组管理员', tabs:['resource-group'], tab:'resource-group',
-    buIds:['bu1','bu2'], rgIds:['rg1','rg2','rg5'],
-    hint:'仅可查看有权限的资源组账单（无企业账单 / 结算单元账单）' }
+  'master':           { label:'主账号',        buIds:null,           rgIds:null },
+  'enterprise-admin': { label:'企业管理员',    buIds:null,           rgIds:null },
+  'sys-admin':        { label:'系统管理员',    buIds:null,           rgIds:null },
+  'billing-admin':    { label:'结算单元管理员', buIds:['bu1','bu2'],  rgIds:null },
+  'rg-admin':         { label:'资源组管理员',   buIds:['bu1','bu2'],  rgIds:['rg1','rg2','rg5'] }
 };
 
 var BILL_TYPES = [
@@ -425,35 +425,43 @@ function createDatePicker(root, cfg){
 }
 
 /* =========================================================
-   面板：每个 Tab 一套独立筛选状态
+   面板状态：单一资源组维度视图（无 Tab，仅一套筛选状态）
    ========================================================= */
 var currentRole = 'master';
-var currentTab  = 'enterprise';
-var panelState  = {};
-var comp = {};   // 各 Tab 的组件实例
+var state = {};   /* { draft, applied, sortDir } */
+var comp = {};    /* 组件实例 */
 
+/* 当前角色可见的结算单元 */
 function allowedBUs(){
-  var cfg = roleConfig[currentRole];
-  var ids = cfg.buIds;
+  var ids = roleConfig[currentRole].buIds;
   return ORG.filter(function(b){ return !ids || ids.indexOf(b.id) > -1; });
 }
-function allowedRGs(buId){
+
+/* 当前角色可见的资源组（跨结算单元）。
+   传 buIds 时只返回这些结算单元下的资源组。
+   返回项附带所属结算单元，供表格「结算单元」列与分组展示使用。 */
+function visibleRGs(buIds){
   var cfg = roleConfig[currentRole];
-  var bu = BU_MAP[buId];
-  if (!bu) return [];
-  return bu.groups.filter(function(g){ return !cfg.rgIds || cfg.rgIds.indexOf(g.id) > -1; });
+  var out = [];
+  allowedBUs().forEach(function(b){
+    if (buIds && buIds.length && buIds.indexOf(b.id) < 0) return;
+    b.groups.forEach(function(g){
+      if (cfg.rgIds && cfg.rgIds.indexOf(g.id) < 0) return;
+      out.push({ id:g.id, name:g.name, w:g.w, buId:b.id, buName:b.name, buW:b.w });
+    });
+  });
+  return out;
 }
 
-function defaultFilters(tab){
-  var bus = allowedBUs();
-  var buId = bus.length ? bus[0].id : '';
-  var rgs = (tab === 'resource-group') ? allowedRGs(buId) : [];
+/* 默认：全部有权限的结算单元 + 其下全部有权限的资源组 */
+function defaultFilters(){
+  var buIds = allowedBUs().map(function(b){ return b.id; });
   return {
     type: 'month',
     period: defaultPeriod('month'),
-    buId: buId,
-    rgIds: rgs.map(function(g){ return g.id; }),   /* 资源组默认全选 */
-    prodIds: ALL_PROD_IDS.slice(),                 /* 产品默认选中全部 */
+    buIds: buIds,
+    rgIds: visibleRGs(buIds).map(function(g){ return g.id; }),
+    prodIds: ALL_PROD_IDS.slice(),
     feeName: '',
     feeType: ''
   };
@@ -462,7 +470,7 @@ function cloneFilters(f){
   return {
     type: f.type,
     period: { y:f.period.y, m:f.period.m, d:f.period.d, h:f.period.h },
-    buId: f.buId,
+    buIds: f.buIds.slice(),
     rgIds: f.rgIds.slice(),
     prodIds: f.prodIds.slice(),
     feeName: f.feeName,
@@ -471,90 +479,69 @@ function cloneFilters(f){
 }
 
 /* 原地修改：wirePanel 的事件闭包持有该对象引用，不能整体替换 */
-function initPanelState(tab){
-  var f = defaultFilters(tab);
-  var st = panelState[tab] || (panelState[tab] = {});
-  st.draft = cloneFilters(f);
-  st.applied = cloneFilters(f);
-  st.sortDir = '';        /* '' | 'asc' | 'desc' */
-  st.expanded = {};
+function initPanelState(){
+  var f = defaultFilters();
+  state.draft = cloneFilters(f);
+  state.applied = cloneFilters(f);
+  state.sortDir = '';   /* '' | 'asc' | 'desc' */
 }
 
 /* =========================================================
    账单数据计算
+   行粒度：资源组 × 产品 × 费用项（每个组合一行）
+   金额系数 = 结算单元权重 × 资源组权重 × 账期粒度缩放 × 波动
    ========================================================= */
-/* 当前查询范围：整体系数 + 下钻明细的构成部分 */
-function scopeOf(tab, f){
-  if (tab === 'enterprise') {
-    return {
-      factor: 1,
-      partLabel: '结算单元',
-      parts: ORG.map(function(b){ return { name:b.name, w:b.w }; })
-    };
-  }
-  var bu = BU_MAP[f.buId];
-  if (!bu) return { factor:0, partLabel:'资源组', parts:[] };
-
-  if (tab === 'billing-unit') {
-    return {
-      factor: bu.w,
-      partLabel: '资源组',
-      parts: bu.groups.map(function(g){ return { name:g.name, w:g.w }; })
-    };
-  }
-  /* 资源组账单：结算单元单选 + 资源组多选 */
-  var picked = bu.groups.filter(function(g){ return f.rgIds.indexOf(g.id) > -1; });
-  var sum = picked.reduce(function(s, g){ return s + g.w; }, 0);
-  return {
-    factor: bu.w * sum,
-    partLabel: '资源组',
-    parts: picked.map(function(g){ return { name:g.name, w: sum ? g.w / sum : 0 }; })
-  };
-}
-
-function buildRows(tab, f){
-  var scope = scopeOf(tab, f);
+function buildRows(f){
   var pScale = periodScale(f.type);
   var pSeed = periodSeed(f.type, f.period);
   var keyword = f.feeName.trim();
+  var period = fmtPeriodCell(f.type, f.period);
   var rows = [];
 
-  PRODUCTS.forEach(function(p, pi){
-    if (f.prodIds.indexOf(p.id) < 0) return;
+  /* 选中的资源组：受角色权限 + 结算单元筛选 + 资源组筛选三重约束 */
+  var groups = visibleRGs(f.buIds).filter(function(g){
+    return f.rgIds.indexOf(g.id) > -1;
+  });
 
-    p.fees.forEach(function(fee, fi){
-      if (f.feeType && fee.type !== f.feeType) return;
-      if (keyword && fee.name.indexOf(keyword) < 0) return;
+  groups.forEach(function(g){
+    PRODUCTS.forEach(function(p, pi){
+      if (f.prodIds.indexOf(p.id) < 0) return;
 
-      /* 同一费用项在不同账期有小幅波动，但对同一账期恒定 */
-      var jitter = 0.85 + pseudo(pSeed + pi * 31 + fi * 7) * 0.3;
-      var mult = pScale * scope.factor * jitter;
+      p.fees.forEach(function(fee, fi){
+        if (f.feeType && fee.type !== f.feeType) return;
+        if (keyword && fee.name.indexOf(keyword) < 0) return;
 
-      var row = {
-        period: fmtPeriodCell(f.type, f.period),
-        product: p.name,
-        feeName: fee.name,
-        feeType: fee.type,
-        unit: fee.unit || '',
-        price: (fee.price === undefined ? null : fee.price),
-        disc:  (fee.disc  === undefined ? null : fee.disc),
-        buName: BU_MAP[f.buId] ? BU_MAP[f.buId].name : '',
-        partLabel: scope.partLabel,
-        parts: scope.parts
-      };
+        /* 同一费用项在不同账期有小幅波动，但对同一账期恒定。
+           种子里带入资源组的全局固定序号（非筛选后的下标），
+           既让各资源组的数字不是同一组数的等比缩放，
+           又保证切角色 / 改筛选时同一资源组的金额不跳动。 */
+        var jitter = 0.85 + pseudo(pSeed + RG_INDEX[g.id] * 137 + pi * 31 + fi * 7) * 0.3;
+        var mult = pScale * g.buW * g.w * jitter;
 
-      if (fee.amount !== undefined) {
-        /* 增项 / 抵扣：无用量与单价，直接给金额 */
-        row.usage = null;
-        row.std = fee.amount * mult;
-        row.pay = fee.amount * mult;
-      } else {
-        row.usage = fee.base * mult;
-        row.std = row.usage * fee.price;
-        row.pay = row.usage * fee.disc;
-      }
-      if (scope.factor === 0) return;
-      rows.push(row);
+        var row = {
+          period: period,
+          product: p.name,
+          feeName: fee.name,
+          feeType: fee.type,
+          unit: fee.unit || '',
+          price: (fee.price === undefined ? null : fee.price),
+          disc:  (fee.disc  === undefined ? null : fee.disc),
+          buName: g.buName,
+          rgName: g.name
+        };
+
+        if (fee.amount !== undefined) {
+          /* 增项 / 抵扣：无用量与单价，直接给金额 */
+          row.usage = null;
+          row.std = fee.amount * mult;
+          row.pay = fee.amount * mult;
+        } else {
+          row.usage = fee.base * mult;
+          row.std = row.usage * fee.price;
+          row.pay = row.usage * fee.disc;
+        }
+        rows.push(row);
+      });
     });
   });
   return rows;
@@ -578,79 +565,56 @@ function usageText(row){
 
 var HELP = '<svg class="help-ico" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.4" stroke="currentColor" stroke-width="1.2"/><path d="M6.4 6.2a1.6 1.6 0 113.2 0c0 1.1-1.6 1.2-1.6 2.3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><circle cx="8" cy="11.2" r=".75" fill="currentColor"/></svg>';
 
-function tableHeadHTML(tab, sortDir){
-  var h = '<tr><th class="col-exp"></th><th>账单时间</th><th>产品</th>';
-  if (tab === 'billing-unit' || tab === 'resource-group') h += '<th>结算单元</th>';
-  if (tab === 'resource-group') h += '<th>资源组</th>';
-  h += '<th>费用名称</th><th>费用类型</th>' +
-       '<th>用量' + HELP + '</th>' +
-       '<th>官网标准价</th>' +
-       '<th>官网标准价金额' + HELP + '</th>' +
-       '<th>客户折扣价</th>' +
-       '<th class="sortable' + (sortDir ? ' sort-' + sortDir : '') + '" data-sort="pay">应付金额' + HELP +
-         '<span class="sort-arrows"><i class="up"></i><i class="down"></i></span></th>' +
-       '<th>操作</th></tr>';
-  return h;
+/* 固定 12 列：资源组维度下列结构不再随 Tab 变化 */
+function tableHeadHTML(sortDir){
+  return '<tr><th>账单时间</th><th>产品</th>' +
+         '<th>结算单元</th><th>资源组</th>' +
+         '<th>费用名称</th><th>费用类型</th>' +
+         '<th>用量' + HELP + '</th>' +
+         '<th>官网标准价</th>' +
+         '<th>官网标准价金额' + HELP + '</th>' +
+         '<th>客户折扣价</th>' +
+         '<th class="sortable' + (sortDir ? ' sort-' + sortDir : '') + '" data-sort="pay">应付金额' + HELP +
+           '<span class="sort-arrows"><i class="up"></i><i class="down"></i></span></th>' +
+         '<th>操作</th></tr>';
 }
 
-function colCount(tab){
-  var n = 11;
-  if (tab === 'billing-unit') n += 1;
-  if (tab === 'resource-group') n += 2;
-  return n;
+var COL_COUNT = 12;
+
+/* 空态文案：区分「无权限」与「筛选条件把结果筛空了」 */
+function emptyText(f){
+  if (!visibleRGs(null).length) return '当前账号在所选企业下暂无有权限的资源组账单';
+  if (!f.buIds.length) return '请至少选择一个结算单元';
+  if (!f.rgIds.length) return '请至少选择一个资源组';
+  if (!f.prodIds.length) return '请至少选择一个产品';
+  return '当前筛选条件下暂无账单数据';
 }
 
-function subTableHTML(row){
-  var html = '<table class="sub-table"><thead><tr>' +
-    '<th style="width:220px">' + row.partLabel + '</th>' +
-    '<th>用量</th><th>官网标准价金额</th><th>应付金额</th></tr></thead><tbody>';
-  row.parts.forEach(function(part){
-    html += '<tr>' +
-      '<td>' + esc(part.name) + '</td>' +
-      '<td class="num">' + (row.usage === null ? '--' : fmtUsage(row.usage * part.w) + ' ' + row.unit) + '</td>' +
-      '<td class="num">' + fmtAmount(row.std * part.w) + '</td>' +
-      '<td class="num">' + fmtAmount(row.pay * part.w) + '</td>' +
-    '</tr>';
-  });
-  return html + '</tbody></table>';
-}
+function renderTable(){
+  var f = state.applied;
+  var rows = buildRows(f);
 
-function renderTable(tab){
-  var st = panelState[tab];
-  var f = st.applied;
-  var rows = buildRows(tab, f);
-
-  if (st.sortDir) {
-    rows.sort(function(a, b){ return st.sortDir === 'asc' ? a.pay - b.pay : b.pay - a.pay; });
+  if (state.sortDir) {
+    rows.sort(function(a, b){ return state.sortDir === 'asc' ? a.pay - b.pay : b.pay - a.pay; });
   }
 
-  var thead = document.getElementById('thead-' + tab);
-  var tbody = document.getElementById('tbody-' + tab);
-  thead.innerHTML = tableHeadHTML(tab, st.sortDir);
+  document.getElementById('thead').innerHTML = tableHeadHTML(state.sortDir);
+  var tbody = document.getElementById('tbody');
 
   if (!rows.length) {
-    tbody.innerHTML = '<tr><td class="empty-cell" colspan="' + colCount(tab) + '">' +
-      (f.prodIds.length === 0 ? '请至少选择一个产品' : '当前筛选条件下暂无账单数据') + '</td></tr>';
+    tbody.innerHTML = '<tr><td class="empty-cell" colspan="' + COL_COUNT + '">' +
+      emptyText(f) + '</td></tr>';
     return;
   }
 
-  var rgNames = '';
-  if (tab === 'resource-group') {
-    var picked = allowedRGs(f.buId).filter(function(g){ return f.rgIds.indexOf(g.id) > -1; });
-    rgNames = picked.length === 1 ? picked[0].name : picked.length + ' 个资源组';
-  }
-
   var html = '';
-  rows.forEach(function(row, i){
-    var key = row.product + '|' + row.feeName;
-    var open = !!st.expanded[key];
-    html += '<tr class="data-row" data-key="' + esc(key) + '">' +
-      '<td class="col-exp"><span class="row-toggle' + (open ? ' open' : '') + '" data-toggle="' + esc(key) + '">' + (open ? '−' : '+') + '</span></td>' +
+  rows.forEach(function(row){
+    var key = row.rgName + '|' + row.product + '|' + row.feeName;
+    html += '<tr class="data-row">' +
       '<td class="num">' + row.period + '</td>' +
-      '<td>' + esc(row.product) + '</td>';
-    if (tab === 'billing-unit' || tab === 'resource-group') html += '<td>' + esc(row.buName) + '</td>';
-    if (tab === 'resource-group') html += '<td>' + esc(rgNames) + '</td>';
-    html +=
+      '<td>' + esc(row.product) + '</td>' +
+      '<td>' + esc(row.buName) + '</td>' +
+      '<td>' + esc(row.rgName) + '</td>' +
       '<td>' + esc(row.feeName) + '</td>' +
       '<td><span class="fee-tag t-' + row.feeType + '">' + row.feeType + '</span></td>' +
       '<td class="num">' + usageText(row) + '</td>' +
@@ -660,8 +624,6 @@ function renderTable(tab){
       '<td class="num pay-amount' + (row.pay < 0 ? ' minus' : '') + '">' + fmtAmount(row.pay) + '</td>' +
       '<td><div class="op-links"><a href="#" data-detail="' + esc(key) + '">明细</a></div></td>' +
     '</tr>';
-    html += '<tr class="sub-row' + (open ? ' open' : '') + '" data-sub="' + esc(key) + '">' +
-      '<td colspan="' + colCount(tab) + '">' + subTableHTML(row) + '</td></tr>';
   });
 
   tbody.innerHTML = html;
@@ -669,248 +631,186 @@ function renderTable(tab){
 
 
 /* 查询范围文案 */
-function scopeText(tab, f){
-  if (tab === 'enterprise') return '当前范围：本企业 · 全部结算单元';
-  var bu = BU_MAP[f.buId];
-  if (!bu) return '当前范围：请先选择结算单元';
-  if (tab === 'billing-unit') return '当前范围：本企业 · ' + bu.name + ' · 全部资源组';
-  var picked = allowedRGs(f.buId).filter(function(g){ return f.rgIds.indexOf(g.id) > -1; });
-  return '当前范围：本企业 · ' + bu.name + ' · ' +
-    (picked.length ? picked.map(function(g){ return g.name; }).join('、') : '未选择资源组');
+function scopeText(f){
+  var groups = visibleRGs(f.buIds).filter(function(g){ return f.rgIds.indexOf(g.id) > -1; });
+  if (!groups.length) return '当前范围：未选择资源组';
+  if (groups.length <= 3) {
+    return '当前范围：本企业 · ' + groups.map(function(g){ return g.name; }).join('、');
+  }
+  return '当前范围：本企业 · ' + groups.length + ' 个资源组';
 }
 
 /* =========================================================
    面板 HTML 构建
    ========================================================= */
-function panelHTML(tab){
+function panelHTML(){
   var filters = '';
 
-  filters += '<select class="select w-sm" id="type-' + tab + '">' +
+  filters += '<select class="select w-sm" id="type-sel">' +
     BILL_TYPES.map(function(t){ return '<option value="' + t.id + '">' + t.label + '</option>'; }).join('') +
     '</select>';
 
-  filters += datePickerShell('dp-' + tab);
+  filters += datePickerShell('dp');
 
-  if (tab === 'billing-unit' || tab === 'resource-group') {
-    filters += selectShell('bu-' + tab, '请选择结算单元', 190);
-  }
-  if (tab === 'resource-group') {
-    filters += selectShell('rg-' + tab, '请选择资源组', 190);
-  }
-
-  filters += selectShell('prod-' + tab, '全部产品', 170);
-  filters += '<input class="input w-md" id="fee-' + tab + '" placeholder="费用名称搜索">';
-  filters += '<select class="select w-sm" id="ftype-' + tab + '">' +
+  /* 结算单元为可选筛选（默认全选），用于把资源组按部门收窄 */
+  filters += selectShell('bu', '全部结算单元', 190);
+  filters += selectShell('rg', '全部资源组', 190);
+  filters += selectShell('prod', '全部产品', 170);
+  filters += '<input class="input w-md" id="fee-input" placeholder="费用名称搜索">';
+  filters += '<select class="select w-sm" id="ftype-sel">' +
     '<option value="">全部费用类型</option>' +
     FEE_TYPES.map(function(t){ return '<option value="' + t + '">' + t + '</option>'; }).join('') +
     '</select>';
 
-  filters += '<button class="btn btn-primary" id="search-' + tab + '">搜 索</button>';
-  filters += '<button class="btn btn-text" id="reset-' + tab + '">重置</button>';
-  filters += '<button class="btn btn-link" id="export-' + tab + '">导出数据</button>';
+  filters += '<button class="btn btn-primary" id="search-btn">搜 索</button>';
+  filters += '<button class="btn btn-text" id="reset-btn">重置</button>';
+  filters += '<button class="btn btn-link" id="export-btn">导出数据</button>';
 
-  return '<div class="tab-panel" id="panel-' + tab + '">' +
-    '<div class="filter-bar">' + filters + '</div>' +
+  return '<div class="filter-bar">' + filters + '</div>' +
     '<div class="table-wrap"><table>' +
-      '<thead id="thead-' + tab + '"></thead>' +
-      '<tbody id="tbody-' + tab + '"></tbody>' +
-    '</table></div>' +
-  '</div>';
+      '<thead id="thead"></thead>' +
+      '<tbody id="tbody"></tbody>' +
+    '</table></div>';
 }
 
-function buildPanels(){
-  document.getElementById('panels').innerHTML = ALL_TABS.map(panelHTML).join('');
-  ALL_TABS.forEach(wirePanel);
+function buildPanel(){
+  document.getElementById('panel').innerHTML = panelHTML();
+  wirePanel();
 }
 
-function wirePanel(tab){
-  var st = panelState[tab];
-  var c = comp[tab] = {};
+/* 资源组下拉选项：随已选结算单元变化，默认全选 */
+function rgOptions(){
+  return visibleRGs(state.draft.buIds).map(function(g){
+    return { id:g.id, name:g.name };
+  });
+}
+
+function wirePanel(){
+  var c = comp;
 
   /* 账单类型 */
-  var typeSel = document.getElementById('type-' + tab);
-  typeSel.value = st.draft.type;
+  var typeSel = document.getElementById('type-sel');
+  typeSel.value = state.draft.type;
   typeSel.addEventListener('change', function(){
-    st.draft.type = typeSel.value;
-    st.draft.period = defaultPeriod(st.draft.type);
-    c.dp.setType(st.draft.type, st.draft.period);
+    state.draft.type = typeSel.value;
+    state.draft.period = defaultPeriod(state.draft.type);
+    c.dp.setType(state.draft.type, state.draft.period);
   });
 
   /* 账期 */
-  c.dp = createDatePicker(document.getElementById('dp-' + tab), {
-    type: st.draft.type,
-    value: st.draft.period,
-    onChange: function(v){ st.draft.period = v; }
+  c.dp = createDatePicker(document.getElementById('dp'), {
+    type: state.draft.type,
+    value: state.draft.period,
+    onChange: function(v){ state.draft.period = v; }
   });
 
-  /* 结算单元（单选） */
-  if (tab === 'billing-unit' || tab === 'resource-group') {
-    c.bu = createSelect(document.getElementById('bu-' + tab), {
-      single: true,
-      placeholder: '请选择结算单元',
-      options: allowedBUs().map(function(b){ return { id:b.id, name:b.name }; }),
-      values: st.draft.buId ? [st.draft.buId] : [],
-      onChange: function(vals){
-        st.draft.buId = vals[0] || '';
-        if (tab === 'resource-group') {
-          /* 结算单元变更后，资源组候选随之变化并默认全选 */
-          var opts = allowedRGs(st.draft.buId).map(function(g){ return { id:g.id, name:g.name }; });
-          st.draft.rgIds = ALL_IDS(opts);
-          c.rg.setOptions(opts, st.draft.rgIds);
-        }
-      }
-    });
-  }
+  /* 结算单元（多选，默认全选） */
+  c.bu = createSelect(document.getElementById('bu'), {
+    placeholder: '请选择结算单元',
+    allLabel: '全部结算单元',
+    options: allowedBUs().map(function(b){ return { id:b.id, name:b.name }; }),
+    values: state.draft.buIds,
+    onChange: function(vals){
+      state.draft.buIds = vals;
+      /* 结算单元变更后，资源组候选随之变化并默认全选 */
+      var opts = rgOptions();
+      state.draft.rgIds = ALL_IDS(opts);
+      c.rg.setOptions(opts, state.draft.rgIds);
+    }
+  });
 
-  /* 资源组（多选） */
-  if (tab === 'resource-group') {
-    c.rg = createSelect(document.getElementById('rg-' + tab), {
-      placeholder: '请选择资源组',
-      allLabel: '全部资源组',
-      options: allowedRGs(st.draft.buId).map(function(g){ return { id:g.id, name:g.name }; }),
-      values: st.draft.rgIds,
-      onChange: function(vals){ st.draft.rgIds = vals; }
-    });
-  }
+  /* 资源组（多选，默认全选） */
+  c.rg = createSelect(document.getElementById('rg'), {
+    placeholder: '请选择资源组',
+    allLabel: '全部资源组',
+    options: rgOptions(),
+    values: state.draft.rgIds,
+    onChange: function(vals){ state.draft.rgIds = vals; }
+  });
 
   /* 产品（多选，默认全选） */
-  c.prod = createSelect(document.getElementById('prod-' + tab), {
+  c.prod = createSelect(document.getElementById('prod'), {
     placeholder: '请选择产品',
     allLabel: '全部产品',
     options: PRODUCTS.map(function(p){ return { id:p.id, name:p.name }; }),
-    values: st.draft.prodIds,
-    onChange: function(vals){ st.draft.prodIds = vals; }
+    values: state.draft.prodIds,
+    onChange: function(vals){ state.draft.prodIds = vals; }
   });
 
   /* 费用名称 / 费用类型 */
-  var feeInput = document.getElementById('fee-' + tab);
-  feeInput.value = st.draft.feeName;
-  feeInput.addEventListener('input', function(){ st.draft.feeName = feeInput.value; });
-  feeInput.addEventListener('keydown', function(e){ if (e.key === 'Enter') doSearch(tab); });
+  var feeInput = document.getElementById('fee-input');
+  feeInput.value = state.draft.feeName;
+  feeInput.addEventListener('input', function(){ state.draft.feeName = feeInput.value; });
+  feeInput.addEventListener('keydown', function(e){ if (e.key === 'Enter') doSearch(); });
 
-  var ftypeSel = document.getElementById('ftype-' + tab);
-  ftypeSel.value = st.draft.feeType;
-  ftypeSel.addEventListener('change', function(){ st.draft.feeType = ftypeSel.value; });
+  var ftypeSel = document.getElementById('ftype-sel');
+  ftypeSel.value = state.draft.feeType;
+  ftypeSel.addEventListener('change', function(){ state.draft.feeType = ftypeSel.value; });
 
-  document.getElementById('search-' + tab).addEventListener('click', function(){ doSearch(tab); });
-  document.getElementById('reset-' + tab).addEventListener('click', function(){ doReset(tab); });
-  document.getElementById('export-' + tab).addEventListener('click', function(){
-    toast('已开始导出「' + TAB_LABEL[tab] + '」，' + scopeText(tab, st.applied).replace('当前范围：', ''));
+  document.getElementById('search-btn').addEventListener('click', doSearch);
+  document.getElementById('reset-btn').addEventListener('click', doReset);
+  document.getElementById('export-btn').addEventListener('click', function(){
+    toast('已开始导出「资源组账单」，' + scopeText(state.applied).replace('当前范围：', ''));
   });
 
-  /* 表格交互：展开 / 排序 / 明细 */
-  var tbody = document.getElementById('tbody-' + tab);
-  tbody.addEventListener('click', function(e){
-    var tg = e.target.closest('.row-toggle');
-    if (tg) {
-      var key = tg.dataset.toggle;
-      st.expanded[key] = !st.expanded[key];
-      var sub = tbody.querySelector('.sub-row[data-sub="' + cssEscape(key) + '"]');
-      tg.classList.toggle('open', st.expanded[key]);
-      tg.textContent = st.expanded[key] ? '−' : '+';
-      if (sub) sub.classList.toggle('open', st.expanded[key]);
-      return;
-    }
+  /* 表格交互：明细跳转 */
+  document.getElementById('tbody').addEventListener('click', function(e){
     var dl = e.target.closest('a[data-detail]');
     if (dl) {
       e.preventDefault();
-      toast('跳转「计费明细」：' + dl.dataset.detail.replace('|', ' / '));
+      toast('跳转「计费明细」：' + dl.dataset.detail.replace(/\|/g, ' / '));
     }
   });
 
-  document.getElementById('thead-' + tab).addEventListener('click', function(e){
+  /* 应付金额排序 */
+  document.getElementById('thead').addEventListener('click', function(e){
     var th = e.target.closest('th.sortable');
     if (!th) return;
-    st.sortDir = st.sortDir === 'desc' ? 'asc' : (st.sortDir === 'asc' ? '' : 'desc');
-    renderTable(tab);
+    state.sortDir = state.sortDir === 'desc' ? 'asc' : (state.sortDir === 'asc' ? '' : 'desc');
+    renderTable();
   });
 }
 
-function cssEscape(s){ return s.replace(/["\\]/g, '\\$&'); }
-
-function doSearch(tab){
-  var st = panelState[tab];
-  if ((tab === 'billing-unit' || tab === 'resource-group') && !st.draft.buId) {
-    toast('请先选择结算单元'); return;
-  }
-  if (tab === 'resource-group' && !st.draft.rgIds.length) {
-    toast('请至少选择一个资源组'); return;
-  }
-  st.applied = cloneFilters(st.draft);
-  st.expanded = {};
-  renderTable(tab);
+function doSearch(){
+  if (!state.draft.buIds.length) { toast('请至少选择一个结算单元'); return; }
+  if (!state.draft.rgIds.length) { toast('请至少选择一个资源组'); return; }
+  if (!state.draft.prodIds.length) { toast('请至少选择一个产品'); return; }
+  state.applied = cloneFilters(state.draft);
+  renderTable();
 }
 
-function doReset(tab){
-  initPanelState(tab);
-  syncPanelUI(tab);
-  renderTable(tab);
+function doReset(){
+  initPanelState();
+  syncPanelUI();
+  renderTable();
 }
 
 /* 把 draft 状态回写到各控件 */
-function syncPanelUI(tab){
-  var st = panelState[tab], c = comp[tab];
-  if (!c) return;
-  document.getElementById('type-' + tab).value = st.draft.type;
-  c.dp.setType(st.draft.type, st.draft.period);
-  if (c.bu) {
-    c.bu.setOptions(allowedBUs().map(function(b){ return { id:b.id, name:b.name }; }),
-                    st.draft.buId ? [st.draft.buId] : []);
-  }
-  if (c.rg) {
-    c.rg.setOptions(allowedRGs(st.draft.buId).map(function(g){ return { id:g.id, name:g.name }; }),
-                    st.draft.rgIds);
-  }
-  c.prod.setValues(st.draft.prodIds);
-  document.getElementById('fee-' + tab).value = st.draft.feeName;
-  document.getElementById('ftype-' + tab).value = st.draft.feeType;
+function syncPanelUI(){
+  var c = comp;
+  if (!c.dp) return;
+  document.getElementById('type-sel').value = state.draft.type;
+  c.dp.setType(state.draft.type, state.draft.period);
+  c.bu.setOptions(allowedBUs().map(function(b){ return { id:b.id, name:b.name }; }),
+                  state.draft.buIds);
+  c.rg.setOptions(rgOptions(), state.draft.rgIds);
+  c.prod.setValues(state.draft.prodIds);
+  document.getElementById('fee-input').value = state.draft.feeName;
+  document.getElementById('ftype-sel').value = state.draft.feeType;
 }
 
 /* =========================================================
-   Tab / 角色切换
+   角色变更（由外壳页广播驱动，本页无角色切换入口）
    ========================================================= */
-function renderTabs(){
-  var tabs = roleConfig[currentRole].tabs;
-  document.getElementById('tabs').innerHTML = tabs.map(function(t){
-    return '<div class="tab' + (t === currentTab ? ' active' : '') + '" data-tab="' + t + '">' + TAB_LABEL[t] + '</div>';
-  }).join('');
-  ALL_TABS.forEach(function(t){
-    document.getElementById('panel-' + t).classList.toggle('active', t === currentTab);
-  });
-}
-
-document.getElementById('tabs').addEventListener('click', function(e){
-  var el = e.target.closest('.tab');
-  if (!el) return;
-  currentTab = el.dataset.tab;
-  renderTabs();
-  renderTable(currentTab);
-});
-
-function switchRole(role){
+function applyRole(role){
+  if (!roleConfig[role]) return;
   currentRole = role;
-  var cfg = roleConfig[role];
-  currentTab = cfg.tab;
 
-  document.querySelectorAll('.role-btn').forEach(function(b){
-    b.classList.toggle('active', b.dataset.role === role);
-  });
-  document.getElementById('role-hint').textContent = cfg.hint;
-
-  /* 角色变化会改变可选的结算单元 / 资源组范围，重置各面板 */
-  ALL_TABS.forEach(function(t){
-    initPanelState(t);
-    syncPanelUI(t);
-  });
-
-  renderTabs();
-  renderTable(currentTab);
+  /* 角色变化会改变可见的结算单元 / 资源组范围，重置筛选后重新渲染 */
+  initPanelState();
+  syncPanelUI();
+  renderTable();
 }
-
-document.querySelector('.role-btn-group').addEventListener('click', function(e){
-  var btn = e.target.closest('.role-btn');
-  if (btn) switchRole(btn.dataset.role);
-});
 
 /* =========================================================
    轻提示
@@ -935,28 +835,17 @@ function toast(msg){
 /* =========================================================
    启动
    ========================================================= */
-ALL_TABS.forEach(initPanelState);
-buildPanels();
-switchRole('master');
+initPanelState();
+buildPanel();
+renderTable();
 
 // ====== 与外壳页（../index.html）通信 ======
 (function(){
-  // 通知外壳页同步顶部角色显示
-  function reportRole(){
-    var cfg = roleConfig[currentRole];
-    if (!cfg || !window.parent || window.parent === window) return;
-    window.parent.postMessage({ type:'role-change', role:currentRole, label:cfg.label }, '*');
-  }
-  // 角色按钮为容器代理，须在其之后注册才能读到更新后的 currentRole
-  document.querySelector('.role-btn-group').addEventListener('click', function(e){
-    if (e.target.closest('.role-btn')) reportRole();
-  });
-  reportRole();
-
-  // 接受外壳页广播的角色，保持两个视图一致
+  // 本页无角色切换入口，只接收外壳广播的角色，不再向外壳上报，
+  // 避免 iframe 加载时把外壳（及其他视图）的当前角色覆盖回默认值。
   window.addEventListener('message', function(e){
     if (!e.data || e.data.type !== 'set-role') return;
     if (!roleConfig[e.data.role] || e.data.role === currentRole) return;
-    switchRole(e.data.role);
+    applyRole(e.data.role);
   });
 })();

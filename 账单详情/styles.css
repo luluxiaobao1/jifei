@@ -197,44 +197,6 @@
   padding: var(--spacing-xl);
 }
 
-/* Tabs */
-.tabs {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-xxl);
-  border-bottom: 1px solid var(--border-light);
-  margin-bottom: var(--spacing-xl);
-}
-
-.tab {
-  position: relative;
-  padding: 0 0 12px;
-  font-size: 14px;
-  color: var(--text-primary);
-  cursor: pointer;
-  transition: color 0.2s ease;
-}
-
-.tab:hover {
-  color: var(--primary-color);
-}
-
-.tab.active {
-  color: var(--primary-color);
-  font-weight: 500;
-}
-
-.tab.active::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: -1px;
-  height: 2px;
-  background: var(--primary-color);
-}
-
-
 /* 提示条 */
 .notice {
   background: #FEF2F2;
@@ -610,41 +572,6 @@ tbody tr.data-row:hover {
   vertical-align: -2px;
 }
 
-/* 展开列 */
-.col-exp {
-  width: 34px;
-  padding-left: 0 !important;
-  padding-right: 0 !important;
-}
-
-.row-toggle {
-  width: 18px;
-  height: 18px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--border-color);
-  border-radius: 2px;
-  background: #fff;
-  color: var(--text-secondary);
-  font-size: 13px;
-  line-height: 1;
-  cursor: pointer;
-  user-select: none;
-  transition: all 0.15s ease;
-}
-
-.row-toggle:hover {
-  border-color: var(--primary-color);
-  color: var(--primary-color);
-}
-
-.row-toggle.open {
-  background: var(--primary-color);
-  border-color: var(--primary-color);
-  color: #fff;
-}
-
 /* 排序表头 */
 th.sortable {
   cursor: pointer;
@@ -685,44 +612,6 @@ th.sort-asc .sort-arrows i.up {
 
 th.sort-desc .sort-arrows i.down {
   border-top-color: var(--primary-color);
-}
-
-/* 明细子表 */
-.sub-row {
-  display: none;
-}
-
-.sub-row.open {
-  display: table-row;
-}
-
-.sub-row > td {
-  padding: 0 0 0 34px !important;
-  background: #FAFBFD;
-}
-
-.sub-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
-}
-
-.sub-table th {
-  padding: 8px var(--spacing-md);
-  text-align: left;
-  font-weight: 400;
-  color: var(--text-tertiary);
-  border-bottom: 1px dashed var(--border-light);
-}
-
-.sub-table td {
-  padding: 8px var(--spacing-md);
-  border-bottom: 1px dashed var(--border-light);
-  color: var(--text-secondary);
-}
-
-.sub-table tr:last-child td {
-  border-bottom: none;
 }
 
 .fee-tag {

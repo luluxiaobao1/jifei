@@ -23,9 +23,21 @@
 <!-- 内容片段：顶栏 / 图标栏 / 侧边栏 / 面包屑 / 浮动条均由外壳页 ../index.html 提供。
      本页仅经 iframe 由外壳加载，不作为独立入口访问。 -->
   <main class="main-content">
-    <!-- 角色演示切换栏 -->
-    <div class="role-demo-bar">
-      <span class="role-demo-label">演示角色：</span>
+    <!-- 角色演示切换：收进右下角悬浮按钮，与账单概览一致 -->
+    <button type="button" class="role-fab" id="role-fab" aria-expanded="false" aria-controls="role-pop">
+      <svg class="role-fab-ico" viewBox="0 0 16 16" fill="none">
+        <circle cx="8" cy="5.5" r="2.75" stroke="currentColor" stroke-width="1.3" />
+        <path d="M2.75 13.5c0-2.4 2.35-3.75 5.25-3.75s5.25 1.35 5.25 3.75" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" />
+      </svg>
+      <span>演示角色：</span>
+      <span class="role-fab-name" id="role-fab-name">主账号</span>
+      <svg class="role-fab-arrow" viewBox="0 0 12 12" fill="none">
+        <path d="M2 4.5L6 8.5L10 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+      </svg>
+    </button>
+
+    <div class="role-pop" id="role-pop">
+      <div class="role-pop-title">切换演示角色</div>
       <div class="role-btn-group">
         <span class="role-set" title="主账号 / 企业管理员 / 系统管理员 权限一致：可查看企业下全部分析">
           <span class="role-set-tag">同权限</span>
@@ -217,7 +229,9 @@
     </div>
   </div>
 
-  <script src="app.js?v=20260901b"></script>
+  <script src="app.js?v=20260905b"></script>
+  <!-- 须在 app.js 之后：依赖 .role-btn 已绑好切换事件 -->
+  <script src="../shared/role-fab.js?v=20260905b"></script>
 </body>
 
 </html>
