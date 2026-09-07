@@ -484,6 +484,103 @@ function initPanelState(){
   state.draft = cloneFilters(f);
   state.applied = cloneFilters(f);
   state.sortDir = '';   /* '' | 'asc' | 'desc' */
+
+  /* 支持从 URL 参数初始化筛选（账单概览 / 账单分析页跳转入口带入） */
+  applyURLParams();
+}
+
+/* =========================================================
+   URL 参数初始化：账单概览 / 账单分析列表跳转进入时，
+   按 账单类型 / 账期 / 产品 / 结算单元 / 资源组 预置筛选。
+   参数名与跳转链接保持一致：
+     billType       month | day
+     period         月 YYYY.MM，天 YYYY.MM.DD
+     product        产品名称
+     billingUnit    结算单元名称
+     resourceGroup  资源组名称
+   匹配不到（如名称已改、无权限）时保持默认全选，不中断渲染。
+   ========================================================= */
+function applyURLParams(){
+  var params = {};
+  var q = (window.location.search || '').replace(/^\?/, '');
+  q.split('&').forEach(function(pair){
+    if (!pair) return;
+    var idx = pair.indexOf('=');
+    if (idx < 0) { params[decodeURIComponent(pair)] = ''; return; }
+    params[decodeURIComponent(pair.slice(0, idx))] = decodeURIComponent(pair.slice(idx + 1).replace(/\+/g, ' '));
+  });
+
+  /* 账单类型：概览页只跳天账单 / 月账单 */
+  if (params.billType === 'day' || params.billType === 'month') {
+    state.draft.type = params.billType;
+    state.applied.type = params.billType;
+  }
+
+  /* 账期：月 YYYY.MM / 天 YYYY.MM.DD → {y,m,d,h} */
+  var p = parsePeriodParam(state.draft.type, params.period);
+  if (p) {
+    state.draft.period = p;
+    state.applied.period = p;
+  }
+
+  /* 结算单元 / 资源组 / 产品：按名称匹配 id，匹配不到保持默认 */
+  var buId = params.billingUnit ? buIdByName(params.billingUnit) : '';
+  var rgId = params.resourceGroup ? rgIdByName(params.resourceGroup) : '';
+  var prodId = params.product ? prodIdByName(params.product) : '';
+
+  if (buId) {
+    state.draft.buIds = [buId];
+    state.applied.buIds = [buId];
+  }
+  if (rgId) {
+    state.draft.rgIds = [rgId];
+    state.applied.rgIds = [rgId];
+  } else if (buId) {
+    /* 指定结算单元但未指定资源组：默认该单元下全部有权限的资源组 */
+    var rgs = visibleRGs([buId]).map(function(g){ return g.id; });
+    state.draft.rgIds = rgs;
+    state.applied.rgIds = rgs;
+  }
+  if (prodId) {
+    state.draft.prodIds = [prodId];
+    state.applied.prodIds = [prodId];
+  }
+}
+
+/* 账期字符串解析：月 YYYY.MM / 天 YYYY.MM.DD */
+function parsePeriodParam(type, s){
+  if (!s) return null;
+  var m;
+  if (type === 'month') {
+    m = /^(\d{4})\.(\d{1,2})/.exec(s);
+    if (m) return { y:+m[1], m:+m[2], d:1, h:0 };
+  } else {
+    m = /^(\d{4})\.(\d{1,2})\.(\d{1,2})/.exec(s);
+    if (m) return { y:+m[1], m:+m[2], d:+m[3], h:0 };
+  }
+  return null;
+}
+
+/* 按名称匹配组织 / 产品 id */
+function buIdByName(name){
+  for (var i = 0; i < ORG.length; i++) {
+    if (ORG[i].name === name) return ORG[i].id;
+  }
+  return '';
+}
+function rgIdByName(name){
+  for (var i = 0; i < ORG.length; i++) {
+    for (var j = 0; j < ORG[i].groups.length; j++) {
+      if (ORG[i].groups[j].name === name) return ORG[i].groups[j].id;
+    }
+  }
+  return '';
+}
+function prodIdByName(name){
+  for (var i = 0; i < PRODUCTS.length; i++) {
+    if (PRODUCTS[i].name === name) return PRODUCTS[i].id;
+  }
+  return '';
 }
 
 /* =========================================================

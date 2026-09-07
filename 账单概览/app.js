@@ -321,10 +321,12 @@ var TOP_LINES = 5;
 // 手动筛选时最多可选中的曲线条数
 var MAX_PICK_LINES = 10;
 
-// 各模块提示文案：共 N 条曲线，默认展示选中区间消费 TOP5，可手动筛选，最多选中 10 个
-function trendTipText(totalCount) {
-  return '共 ' + totalCount + ' 条曲线，默认展示选中区间消费 TOP' + TOP_LINES +
-    '，可手动筛选，最多选中 ' + MAX_PICK_LINES + ' 个';
+// 各模块提示文案：共 N 条曲线，默认展示选中区间内累计金额TOP的产品/结算单元/资源组曲线，可手动筛选，最多选择 10 个
+function trendTipText(totalCount, modKey) {
+  var scopeWord = modKey === 'product' ? '产品'
+    : (modKey === 'bu' ? '结算单元' : '资源组');
+  return '共 ' + totalCount + ' 条曲线，默认展示选中区间内累计金额TOP的' + scopeWord +
+    '曲线。可手动筛选，最多选择 ' + MAX_PICK_LINES + ' 个。';
 }
 
 // ====== 总账趋势区块 ======
@@ -1064,10 +1066,10 @@ function appendModule(host, dim, mod, scopes, subjects, keys, ctx, moduleDraft, 
   var tools = document.createElement('div');
   tools.className = 'trend-module-tools';
 
-  // 模块提示文案：共 N 条曲线，默认展示 TOP5，可手动筛选，最多选中 10 个
+  // 模块提示文案：共 N 条曲线，默认展示选中区间内累计金额TOP的曲线，可手动筛选，最多选择 10 个
   var tip = document.createElement('div');
   tip.className = 'trend-module-tip';
-  tip.textContent = trendTipText(totalCount);
+  tip.textContent = trendTipText(totalCount, mod.key);
   tools.appendChild(tip);
 
   // 模块级筛选下拉：模块自身维度的多选（产品 / 结算单元 / 资源组），勾选仅存草稿。
@@ -1615,7 +1617,7 @@ function coverOf(dim, scopes, keys) {
   };
 }
 
-// 跳转计费明细时携带的主体参数：结算单元 / 资源组取该行自身所属主体
+// 跳转账单详情时携带的主体参数：结算单元 / 资源组取该行自身所属主体
 function scopeParams(dim, scope) {
   if (dim === 'billing-unit') {
     // 按产品：scope 为结算单元；按资源组：scope 为资源组
@@ -1721,11 +1723,11 @@ function renderReport(ids, dim, scopes, selectedKeys, ctx) {
   var maxPayable = rows.reduce(function (m, r) { return Math.max(m, r.payable); }, 0);
 
   tbody.innerHTML = rows.map(function (r) {
-    // 计费明细传参：产品 + 账单类型 + 账期 + 该行所属结算单元 / 资源组。
+    // 账单详情传参：账单类型（天账单/月账单）+ 选中账期 + 该行所属产品 / 结算单元 / 资源组。
     // 按结算单元分行时该行覆盖全部产品，故不带 product 参数。
     var sp = scopeParams(dim, r.scope);
     var bu = r.buName || sp.bu;
-    var href = '../计费明细/index.html?billType=' + billTypeParam +
+    var href = '../账单详情/index.html?billType=' + billTypeParam +
                '&period=' + encodeURIComponent(label) +
                (r.prodName ? '&product=' + encodeURIComponent(r.prodName) : '') +
                (bu ? '&billingUnit=' + encodeURIComponent(bu) : '') +
@@ -1743,10 +1745,10 @@ function renderReport(ids, dim, scopes, selectedKeys, ctx) {
     cells.push('<td>' + escapeHtml(mainName) + '</td>');
     cells.push('<td class="col-num">' + fmtMoney(r.standard) + '</td>');
     cells.push('<td class="col-num">' + fmtMoney(r.discount) + '</td>');
-    // 应付金额即下钻入口，点击进入该行在本账期下的计费明细；环比挂在金额下方
+    // 应付金额即下钻入口，点击进入该行在本账期下的账单详情；环比挂在金额下方
     cells.push('<td class="col-num"><span class="cell-pay">' +
                '<a class="pay-link" href="' + escapeHtml(href) +
-               '" target="_blank" rel="noopener" title="查看计费明细">' + fmtMoney(r.payable) + '</a>' +
+               '" target="_blank" rel="noopener" title="查看账单详情">' + fmtMoney(r.payable) + '</a>' +
                cellMomHtml(r.momPct) +
                '</span></td>');
     cells.push('<td class="col-num">' + shareCellHtml(share, bar) + '</td>');
