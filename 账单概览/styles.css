@@ -100,6 +100,14 @@
   display: block;
 }
 
+/* 多选下拉超出上限的提示 */
+.ms-limit-tip {
+  padding: 6px 14px;
+  font-size: 12px;
+  color: #E23C39;
+  background: #FDF3F2;
+}
+
 .ms-option {
   display: flex;
   align-items: center;
@@ -1728,6 +1736,69 @@ td:first-child {
   display: block;
 }
 
+/* 拆分模块 Tab：产品 / 结算单元 / 资源组 变化趋势切换 */
+.trend-module-tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  padding: 4px;
+  margin-bottom: var(--spacing-lg);
+  background: var(--bg-gray);
+  border: 1px solid var(--border-light);
+  border-radius: var(--border-radius-md);
+}
+
+/* Tab 栏与模块合并进同一卡片后：Tab 栏退化为卡片顶部的切换条，
+   去掉自身的灰底描边，只保留一条与内容区隔开的分隔线 */
+.trend-module-tabbed .trend-module-tabs {
+  padding: 0 0 var(--spacing-sm);
+  margin-bottom: var(--spacing-sm);
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border-light);
+  border-radius: 0;
+}
+
+.trend-module-tab {
+  height: 30px;
+  padding: 0 var(--spacing-lg);
+  border: none;
+  background: transparent;
+  border-radius: var(--border-radius-sm);
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.trend-module-tab:hover {
+  color: var(--primary-color);
+}
+
+.trend-module-tab.active {
+  background: var(--card-background);
+  color: var(--primary-color);
+  font-weight: 500;
+  box-shadow: 0 1px 3px rgba(49, 49, 71, 0.12);
+}
+
+.trend-module-panel {
+  display: block;
+}
+
+/* 模块提示文案：与筛选框同行（工具行左侧），节省纵向空间 */
+.trend-module-tip {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  line-height: 1.5;
+  margin: 0;
+}
+
 /* 拆分模块：产品 / 结算单元 / 资源组 变化趋势，每个模块一张独立折线图 */
 .trend-module {
   background: var(--bg-gray);
@@ -1751,6 +1822,19 @@ td:first-child {
   border-bottom: 1px solid var(--border-light);
 }
 
+/* 模块工具行：左侧提示文案 + 右侧筛选下拉与导出按钮，同行排布；
+   下拉组用 margin-left: auto 推到右侧，避免 space-between 把下拉挤到中间 */
+.trend-module-tools {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--spacing-md);
+  flex-wrap: wrap;
+  padding-bottom: var(--spacing-sm);
+  margin-bottom: var(--spacing-sm);
+  border-bottom: 1px solid var(--border-light);
+}
+
 .trend-module-title {
   font-size: 15px;
   font-weight: 600;
@@ -1763,9 +1847,10 @@ td:first-child {
   min-width: 0;
 }
 
-/* 模块级筛选下拉：置于模块标题行的右侧 */
-.trend-module .module-ms {
+/* 模块级筛选下拉：置于工具行右侧（提示文案之后） */
+.trend-module-tools .module-ms {
   margin-left: auto;
+  flex: 0 0 auto;
 }
 
 .module-ms .ms-trigger {
@@ -1782,15 +1867,6 @@ td:first-child {
   min-width: 200px;
   max-height: 280px;
   overflow-y: auto;
-}
-
-/* 曲线超上限提示（模块默认只展示最近账期金额 TOP20） */
-.legend-note-inline {
-  display: block;
-  font-size: 12px;
-  color: var(--text-tertiary);
-  line-height: 1.5;
-  margin: 0 0 var(--spacing-sm);
 }
 
 /* 小尺寸空态：全部曲线被隐藏后的占位提示 */

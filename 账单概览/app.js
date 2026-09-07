@@ -259,6 +259,13 @@ function fmtAxis(v) {
   return (v / 10000).toFixed(1) + 'w';
 }
 
+// 次纵坐标（环比 %）刻度文案：零刻度不带符号，正值补 +，整数不留小数尾巴
+function fmtPctTick(v) {
+  if (Math.abs(v) < 0.005) return '0%';
+  var txt = Math.abs(v % 1) < 0.005 ? v.toFixed(0) : v.toFixed(1);
+  return (v > 0 ? '+' : '') + txt + '%';
+}
+
 function escapeHtml(s) {
   return String(s).replace(/[&<>"]/g, function (c) {
     return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
@@ -308,8 +315,17 @@ function legendItemHtml(l) {
 // ====== 趋势图渲染 ======
 var CH = { left: 110, right: 1400, top: 20, bottom: 255 };
 
-// 曲线最多展示条数：按选中区间「最近账期应付金额」排序取前 N 条
-var TOP_LINES = 20;
+// 曲线默认最多展示条数：按选中区间「消费合计」排序取前 N 条
+var TOP_LINES = 5;
+
+// 手动筛选时最多可选中的曲线条数
+var MAX_PICK_LINES = 10;
+
+// 各模块提示文案：共 N 条曲线，默认展示选中区间消费 TOP5，可手动筛选，最多选中 10 个
+function trendTipText(totalCount) {
+  return '共 ' + totalCount + ' 条曲线，默认展示选中区间消费 TOP' + TOP_LINES +
+    '，可手动筛选，最多选中 ' + MAX_PICK_LINES + ' 个';
+}
 
 // ====== 总账趋势区块 ======
 // 需求：趋势视图顶部统一展示「企业总账 / 选中结算单元总账 / 选中资源组总账」的变化趋势。
@@ -383,7 +399,8 @@ function renderTrendChart(wrap, ctx, series, pcts) {
   var pctBound = niceMax(maxPct * 1.15 + 2);
   if (pctBound < 5) pctBound = 5;
 
-  var left = 96, right = 1420, top = 20, bottom = 255;
+  // right 留出 90px 画右侧次纵坐标（环比 %）的轴线与刻度文字
+  var left = 96, right = 1330, top = 20, bottom = 255;
   var PAD_X = 18;
   var x0 = left + PAD_X;
   var span = (right - PAD_X) - x0;
@@ -420,9 +437,20 @@ function renderTrendChart(wrap, ctx, series, pcts) {
   }
   s.push('<text x="' + (left - 14) + '" y="260">0</text></g>');
 
-  // 右轴刻度（百分比）：仅画正向与零刻度基准，负向随数据自然对称
+  // 右侧次纵坐标（环比 %）：零刻度居中，上下各 3 档。
+  // 取 3 档是为了让右轴刻度与左轴的 6 等分横向网格线逐条对齐（0% 落在正中那条）。
+  var PCT_TICKS = 3;
+  s.push('<line x1="' + right + '" y1="' + top + '" x2="' + right + '" y2="' + bottom +
+         '" stroke="#8C57C2" stroke-width="1" stroke-opacity="0.35" />');
   s.push('<g fill="#8C57C2" font-size="14" text-anchor="start" font-family="Microsoft YaHei, PingFang SC">');
-  s.push('<text x="' + (right + 10) + '" y="' + py(0) + '">0%</text>');
+  for (var pt = PCT_TICKS; pt >= -PCT_TICKS; pt--) {
+    var pv = pctBound * (pt / PCT_TICKS);
+    var pty = py(pv);
+    s.push('<line x1="' + right + '" y1="' + pty.toFixed(1) + '" x2="' + (right + 5) + '" y2="' + pty.toFixed(1) +
+           '" stroke="#8C57C2" stroke-width="1" stroke-opacity="0.5" />');
+    s.push('<text x="' + (right + 11) + '" y="' + (pty + 5).toFixed(1) + '">' + fmtPctTick(pv) + '</text>');
+  }
+  s.push('</g>');
 
   // 柱体：宽度按刻度间距的 0.6，单账期时给固定宽度
   var barW = n > 1 ? Math.max(6, step * 0.6) : 24;
@@ -990,13 +1018,15 @@ function renderModuleChart(wrap, legendEl, dim, modKey, lines, ctx) {
   if (wrapH > 0) legendEl.style.maxHeight = Math.round(wrapH) + 'px';
 }
 
-// 模块是否只展示 TOP20：模块曲线超过 TOP_LINES 时，
-// 按区间「最近账期应付金额」排序截断，未展示的曲线不出现在图例中
-function truncateTop(lines, ctx) {
-  if (lines.length <= TOP_LINES) return lines;
-  var lastIdx = ctx.n - 1;
+// 模块是否只展示 TOP5：模块曲线超过 TOP_LINES 时按区间「消费合计」排序截断；
+// 手动筛选已明确选择曲线时不再截断（最多 10 条由筛选组件保证）。
+function truncateTop(lines, ctx, skip) {
+  if (skip || lines.length <= TOP_LINES) return lines;
+  var totalOf = function (l) {
+    return l.data.reduce(function (s, v) { return s + v; }, 0);
+  };
   return lines.slice().sort(function (a, b) {
-    return (b.data[lastIdx] || 0) - (a.data[lastIdx] || 0);
+    return totalOf(b) - totalOf(a);
   }).slice(0, TOP_LINES);
 }
 
@@ -1010,37 +1040,42 @@ function truncateTop(lines, ctx) {
 // ctx   渲染上下文
 // moduleDraft  模块级筛选草稿（下拉 UI 回填用，未点搜索不生效）
 // moduleApplied 模块级已生效筛选（图表数据与副标题依据）
-function appendModule(host, dim, mod, scopes, subjects, keys, ctx, moduleDraft, moduleApplied) {
+function appendModule(host, dim, mod, scopes, subjects, keys, ctx, moduleDraft, moduleApplied, bare) {
   var chartId = 'chart-' + dim + '-' + mod.key;
   var legendId = 'legend-' + dim + '-' + mod.key;
   moduleDraft = moduleDraft || emptyModuleSel();
   moduleApplied = moduleApplied || emptyModuleSel();
 
-  var moduleBox = document.createElement('div');
-  moduleBox.className = 'trend-module';
+  // bare 模式：模块内容直接渲染进 host（用于 Tab 栏与模块合并进同一卡片），不再额外套灰底卡片
+  var moduleBox = bare ? host : document.createElement('div');
+  if (!bare) moduleBox.className = 'trend-module';
   moduleBox.dataset.module = mod.key;
   moduleBox.dataset.dim = dim;
 
-  var head = document.createElement('div');
-  head.className = 'trend-module-head';
-  var title = document.createElement('h4');
-  title.className = 'trend-module-title';
-  title.textContent = mod.title;
-  head.appendChild(title);
+  // 曲线数据先构建：提示文案需要曲线总条数，且提示与筛选框同行渲染
+  var lines = buildModuleLines(dim, mod.key, subjects, keys, ctx);
+  var totalCount = lines.length;
+  // 手动筛选已明确选择时不再按 TOP 截断（条数上限由筛选组件限制）
+  var picked = !!(moduleApplied[mod.pick] && moduleApplied[mod.pick].length);
+  lines = truncateTop(lines, ctx, picked);
 
-  // 副标题固定格式，不随模块级筛选变化
-  var sub = document.createElement('span');
-  sub.className = 'trend-module-sub';
-  sub.textContent = moduleSubText(dim, mod.key, scopes);
-  head.appendChild(sub);
-  moduleBox.appendChild(head);
+  // 工具行：左侧提示文案 + 右侧筛选下拉与导出按钮，同行排布以节省纵向空间。
+  // 去掉「XX变化趋势」标题头，当前模块已由 Tab 栏标识
+  var tools = document.createElement('div');
+  tools.className = 'trend-module-tools';
+
+  // 模块提示文案：共 N 条曲线，默认展示 TOP5，可手动筛选，最多选中 10 个
+  var tip = document.createElement('div');
+  tip.className = 'trend-module-tip';
+  tip.textContent = trendTipText(totalCount);
+  tools.appendChild(tip);
 
   // 模块级筛选下拉：模块自身维度的多选（产品 / 结算单元 / 资源组），勾选仅存草稿。
   // 初始化须在模块挂载进 document 之后（initModulePick 内部依赖 getElementById）。
   var modulePick = null;
   if (mod.pick) {
     modulePick = buildModulePick(dim, mod);
-    head.appendChild(modulePick);
+    tools.appendChild(modulePick);
   }
 
   // 导出数据按钮（趋势模块右上角，位于筛选框之后）
@@ -1049,7 +1084,8 @@ function appendModule(host, dim, mod, scopes, subjects, keys, ctx, moduleDraft, 
   exportBtn.className = 'btn btn-link btn-export';
   exportBtn.setAttribute('data-export', 'module-' + dim + '-' + mod.key);
   exportBtn.textContent = '导出数据';
-  head.appendChild(exportBtn);
+  tools.appendChild(exportBtn);
+  moduleBox.appendChild(tools);
 
   var section = document.createElement('div');
   section.className = 'chart-section';
@@ -1066,18 +1102,7 @@ function appendModule(host, dim, mod, scopes, subjects, keys, ctx, moduleDraft, 
   section.appendChild(side);
   moduleBox.appendChild(section);
 
-  var lines = buildModuleLines(dim, mod.key, subjects, keys, ctx);
-  var totalCount = lines.length;
-  lines = truncateTop(lines, ctx);
-  if (totalCount > TOP_LINES) {
-    var note = document.createElement('div');
-    note.className = 'legend-note-inline';
-    note.textContent = '共 ' + totalCount + ' 条曲线，默认展示最近账期（' +
-      ctx.labels[ctx.n - 1] + '）应付金额 TOP' + TOP_LINES;
-    moduleBox.insertBefore(note, section);
-  }
-
-  host.appendChild(moduleBox);
+  if (!bare) host.appendChild(moduleBox);
   renderModuleChart(chartWrap, legendEl, dim, mod.key, lines, ctx);
 
   // 模块挂载后再初始化下拉，避免 getElementById 取不到尚未入树的节点
@@ -1131,10 +1156,10 @@ function initModulePick(dim, mod, scopes, wrap, moduleDraft) {
   };
 
   initMultiselect(ns + '-trigger', ns + '-dropdown', ns + '-label', onChange,
-                  allLabel, moduleDraft[mod.pick] || [], onClose);
+                  allLabel, moduleDraft[mod.pick] || [], onClose, MAX_PICK_LINES);
 }
 
-// 整块趋势视图渲染：总账区块 + 各拆分模块
+// 整块趋势视图渲染：总账区块 + 拆分模块 Tab
 // box 即面板内的 #chartbox-<dim> 容器
 // moduleDraft / moduleApplied 为模块级筛选状态（draft 用于下拉回填，applied 用于图表与副标题）
 function renderTrendView(box, dim, scopes, moduleDraft, moduleApplied, ctx) {
@@ -1157,14 +1182,74 @@ function renderTrendView(box, dim, scopes, moduleDraft, moduleApplied, ctx) {
   box.innerHTML = '';
   renderTrendBlock(box, dim, scopes, ctx);
 
-  // 2. 拆分模块：每个模块独立成段，曲线默认 TOP20
-  (TREND_MODULES[dim] || []).forEach(function (mod) {
-    // 产品模块按模块级所选产品出曲线；bu/rg 模块按模块级所选主体出曲线
+  // 2. 拆分模块 Tab：Tab 切换展示不同变化趋势，仅渲染当前选中模块，避免平铺渲染导致页面加载慢
+  var mods = (TREND_MODULES[dim] || []).filter(function (mod) {
     var subjects = moduleSubjectsOf(dim, mod.key, scopes,
       mod.key === 'product' ? null : moduleApplied[mod.key]);
-    if (!subjects.length) return;
-    appendModule(box, dim, mod, scopes, subjects, keys, ctx, moduleDraft, moduleApplied);
+    return subjects.length > 0;
   });
+  if (!mods.length) return;
+
+  var st = panelState[dim];
+  var activeKey = st.trendTab;
+  if (!mods.some(function (m) { return m.key === activeKey; })) {
+    activeKey = mods[0].key;
+    st.trendTab = activeKey;
+  }
+
+  // 单模块无需 Tab 栏，直接平铺渲染该模块
+  if (mods.length === 1) {
+    var solo = document.createElement('div');
+    solo.className = 'trend-module-panel';
+    solo.dataset.module = activeKey;
+    box.appendChild(solo);
+    appendModule(solo, dim, mods[0], scopes,
+      moduleSubjectsOf(dim, mods[0].key, scopes,
+        mods[0].key === 'product' ? null : moduleApplied[mods[0].key]),
+      keys, ctx, moduleDraft, moduleApplied);
+    return;
+  }
+
+  var tabs = document.createElement('div');
+  tabs.className = 'trend-module-tabs';
+  tabs.setAttribute('role', 'tablist');
+  mods.forEach(function (mod) {
+    var tab = document.createElement('button');
+    tab.type = 'button';
+    tab.className = 'trend-module-tab' + (mod.key === activeKey ? ' active' : '');
+    tab.dataset.module = mod.key;
+    tab.setAttribute('role', 'tab');
+    tab.setAttribute('aria-selected', mod.key === activeKey ? 'true' : 'false');
+    tab.textContent = mod.title;
+    tabs.appendChild(tab);
+  });
+
+  var panel = document.createElement('div');
+  panel.className = 'trend-module-panel';
+  panel.dataset.module = activeKey;
+
+  // Tab 栏与拆分模块合并进同一灰底卡片：Tab 栏作为卡片顶部切换条，模块标题头已去除
+  var tabbed = document.createElement('div');
+  tabbed.className = 'trend-module trend-module-tabbed';
+  tabbed.appendChild(tabs);
+  tabbed.appendChild(panel);
+  box.appendChild(tabbed);
+
+  var activeMod = mods.filter(function (m) { return m.key === activeKey; })[0];
+  var subjects = moduleSubjectsOf(dim, activeMod.key, scopes,
+    activeMod.key === 'product' ? null : moduleApplied[activeMod.key]);
+  appendModule(panel, dim, activeMod, scopes, subjects, keys, ctx, moduleDraft, moduleApplied, true);
+}
+
+// 趋势模块 Tab 切换：仅重绘当前选中模块，避免平铺渲染全部模块
+function switchTrendTab(dim, modKey) {
+  var st = panelState[dim];
+  if (!st) return;
+  var box = document.getElementById(st.ids.chartBox);
+  if (!box) return;
+  if (st.trendTab === modKey) return;
+  st.trendTab = modKey;
+  refreshPanel(dim);
 }
 
 // ====== 账单状态 / 账期状态 ======
@@ -1588,6 +1673,10 @@ function renderReport(ids, dim, scopes, selectedKeys, ctx) {
   var group = groupOf(dim);
   var rows = buildReportRows(dim, group, scopes, keys, ctx.grain, date);
 
+  // 报表列表（日报表 / 月报表）无论按产品 / 按结算单元 / 按资源组，
+  // 统一按应付金额从大到小排序，便于快速识别费用主体。
+  rows.sort(function (a, b) { return b.payable - a.payable; });
+
   // 应用报表实体筛选（产品 / 结算单元 / 资源组多选过滤）。
   // 列表行按 filterKey 过滤；卡片口径（应付合计/环比/涉及范围）需与列表一致。
   var cardScopes = scopes;
@@ -1945,6 +2034,8 @@ function makePanel(ids) {
     // 趋势图中被手动切换过显隐的曲线：key -> true(隐藏) / false(显示)。
     // 未记录的曲线走默认：总账隐藏、产品显示。
     hiddenLines: {},
+    // 当前选中的趋势模块 Tab key（product / bu / rg），首次渲染时自动取第一个可用模块
+    trendTab: '',
     ids: ids
   };
 }
@@ -2506,7 +2597,9 @@ Object.keys(panelState).forEach(function (dim) {
   if (!box) return;
   box.addEventListener('click', function (e) {
     var item = e.target.closest('.legend-item');
-    if (item) toggleLegendItem(dim, item);
+    if (item) { toggleLegendItem(dim, item); return; }
+    var tab = e.target.closest('.trend-module-tab');
+    if (tab) switchTrendTab(dim, tab.dataset.module);
   });
   box.addEventListener('keydown', function (e) {
     legendKeyHandler(dim, e);
@@ -2875,7 +2968,7 @@ function resetModuleSelUi(dim) {
 // ====== 多选下拉组件 ======
 var msInstances = {};
 
-function initMultiselect(triggerId, dropdownId, labelId, onChange, placeholder, initial, onClose) {
+function initMultiselect(triggerId, dropdownId, labelId, onChange, placeholder, initial, onClose, max) {
   var oldTrigger = document.getElementById(triggerId);
   var dropdown = document.getElementById(dropdownId);
   if (!oldTrigger || !dropdown) return;
@@ -2978,6 +3071,17 @@ function initMultiselect(triggerId, dropdownId, labelId, onChange, placeholder, 
         selected.delete(opt.dataset.value);
         opt.classList.remove('checked');
       } else {
+        // 手动筛选最多选中 max 个，超出时提示并忽略本次勾选
+        if (max && selected.size >= max) {
+          var limitTip = document.createElement('div');
+          limitTip.className = 'ms-limit-tip';
+          limitTip.textContent = '最多选中 ' + max + ' 个';
+          dropdown.appendChild(limitTip);
+          setTimeout(function () {
+            if (limitTip.parentNode) limitTip.parentNode.removeChild(limitTip);
+          }, 1600);
+          return;
+        }
         selected.add(opt.dataset.value);
         opt.classList.add('checked');
       }
